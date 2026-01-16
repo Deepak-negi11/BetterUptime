@@ -11,7 +11,7 @@ pub struct Store {
 
 impl Store {
    
-    pub fn default() -> Result<Self, ConnectionError> {
+    pub fn new() -> Result<Self, ConnectionError> {
         dotenvy::dotenv().ok();
         let database_url = env::var("DATABASE_URL")
             .unwrap_or_else(|_| panic!("DATABASE_URL environment variable must be set"));
