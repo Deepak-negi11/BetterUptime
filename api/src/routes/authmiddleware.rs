@@ -11,7 +11,7 @@ use crate::routes::user::Claims;
 impl <'a> FromRequest<'a> for UserId{
     async fn from_request(
         req:&'a Request,
-        body:&mut RequestBody,
+        _body:&mut RequestBody,
 
     )->Result<Self, Error> {
 

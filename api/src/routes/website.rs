@@ -25,7 +25,7 @@ pub fn get_website(
 pub fn create_website(
     Json(data): Json<CreateWebsiteInput>
     ,Data(s):Data<&Arc<Mutex<Store>>>,
-    UserId (user_id ): UserId
+    UserId(user_id ): UserId
     ) -> Json<CreateWebsiteOutput> {
 
     let mut locked_s = s.lock().unwrap();

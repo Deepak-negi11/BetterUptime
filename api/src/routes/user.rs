@@ -37,20 +37,23 @@ pub fn signin(Json(data):Json<CreateUserInput>,Data(s):Data<&Arc<Mutex<Store>>>)
     let user_id = locked_s.sign_in(username, password);
 
     match user_id {
-        Ok(user_id)=>{
+        Ok(user_id) => {
             let claims = Claims {
                 sub: user_id.to_string(),
                 exp: 10000000000,
             };
-             let token = encode(&Header::default(), &claims, &EncodingKey::from_secret(env::var("JWT_SECRET").unwrap().as_ref()))
-           .map_err(|_| Error::from_status(StatusCode::UNAUTHORIZED))?;
+            let jwt_secret = env::var("JWT_SECRET").map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(jwt_secret.as_bytes()),
+            ).map_err(|_| Error::from_status(StatusCode::UNAUTHORIZED))?;
 
             let response = SignInOutput {
-                jwt: user_id.to_string()
+                jwt: token
             };
-           
             Ok(Json(response))
         }
-        Err(e)=>Err(Error::from_status(StatusCode::UNAUTHORIZED))
+        Err(_e)=>Err(Error::from_status(StatusCode::UNAUTHORIZED))
     }
 }
