@@ -17,5 +17,7 @@ pub struct SignInOutput{
 
 #[derive(serde::Deserialize,serde::Serialize)]
 pub struct GetWebsiteOutput{
-    pub url:String
+    pub url:String,
+    pub id :String,
+    pub user_id :String
 }

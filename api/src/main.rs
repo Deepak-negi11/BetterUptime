@@ -8,6 +8,7 @@ use store::store::Store;
 pub mod routes;
 use crate::routes::user::{signin, signup};
 use crate::routes::website::{create_website, get_website};
+use crate::routes::authmiddleware;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), std::io::Error> {
