@@ -2,6 +2,7 @@ use std::env;
 use std::sync::{Arc, Mutex};
 use crate::request_input::CreateUserInput;
 use crate::request_output::{CreateUserOutput, SignInOutput};
+use crate::routes::hashing::{hash_password, verify_password};
 
 use jsonwebtoken::{EncodingKey, Header, encode};
 use poem::Result;
@@ -20,8 +21,13 @@ pub struct Claims {
 pub fn signup(Json(data):Json<CreateUserInput>,Data(s):Data<&Arc<Mutex<Store>>>) -> Result<Json<CreateUserOutput>, Error> {
     let username = data.username;
     let password = data.password;
+    
+    // Hash the password before storing
+    let hashed_password = hash_password(&password)
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    
     let mut locked_s = s.lock().unwrap();
-    let id = locked_s.sign_up(username, password).map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
+    let id = locked_s.sign_up(username, hashed_password).map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
     let response = CreateUserOutput {
         id
     };
@@ -34,7 +40,20 @@ pub fn signin(Json(data):Json<CreateUserInput>,Data(s):Data<&Arc<Mutex<Store>>>)
     let username = data.username;
     let password = data.password;
     let mut locked_s = s.lock().unwrap(); 
-    let user_id = locked_s.sign_in(username, password);
+    
+    // Get user with stored hash, then verify password
+    let user_result = locked_s.get_user_by_username(&username);
+    
+    let user_id = match user_result {
+        Ok((id, stored_hash)) => {
+            if verify_password(&password, &stored_hash) {
+                Ok(id)
+            } else {
+                Err(Error::from_status(StatusCode::UNAUTHORIZED))
+            }
+        }
+        Err(_) => Err(Error::from_status(StatusCode::UNAUTHORIZED))
+    };
 
     match user_id {
         Ok(user_id) => {

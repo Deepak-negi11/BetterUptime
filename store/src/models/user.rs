@@ -28,19 +28,15 @@ impl Store {
     Ok(id.to_string())
 
     }
-    pub fn sign_in(&mut self ,input_username:String, input_password:String)-> Result<String , diesel::result::Error>{
+    /// Returns user id and password hash for the given username
+    /// Password verification should be done in the API layer using the hashing utilities
+    pub fn get_user_by_username(&mut self, input_username: &str) -> Result<(String, String), diesel::result::Error> {
         use crate::schema::user::dsl::*;
         let user_result = user
-        .filter(username.eq(input_username))
-        .select(User::as_select())
-        .first(&mut self.conn)?;
-
-
-        if user_result.password != input_password{
-            return  Err(diesel::result::Error::NotFound)
-        }
-        Ok(user_result.id)
-
+            .filter(username.eq(input_username))
+            .select(User::as_select())
+            .first(&mut self.conn)?;
+        
+        Ok((user_result.id, user_result.password))
     }
-   
 }
