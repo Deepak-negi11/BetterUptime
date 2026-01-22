@@ -1,78 +1,99 @@
-use std::env;
-use std::sync::{Arc, Mutex};
 use crate::request_input::CreateUserInput;
 use crate::request_output::{CreateUserOutput, SignInOutput};
 use crate::routes::hashing::{hash_password, verify_password};
+use std::env;
+use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use jsonwebtoken::{EncodingKey, Header, encode};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use poem::Result;
-use poem::{Error, http::StatusCode};
-use poem::{handler, web::{Data, Json}};
+use poem::{
+    handler,
+    web::{Data, Json},
+};
+use poem::{http::StatusCode, Error};
 use store::store::Store;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Claims {
-    pub sub :String,
-    exp: usize,
+    pub sub: String,
+    exp: u64,
 }
 
-
 #[handler]
-pub fn signup(Json(data):Json<CreateUserInput>,Data(s):Data<&Arc<Mutex<Store>>>) -> Result<Json<CreateUserOutput>, Error> {
+pub fn signup(
+    Json(data): Json<CreateUserInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+) -> Result<Json<CreateUserOutput>, Error> {
     let username = data.username;
     let password = data.password;
-    
-    // Hash the password before storing
     let hashed_password = hash_password(&password)
         .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
-    
-    let mut locked_s = s.lock().unwrap();
-    let id = locked_s.sign_up(username, hashed_password).map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
-    let response = CreateUserOutput {
-        id
-    };
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let id = locked_s
+        .sign_up(username, hashed_password)
+        .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
+    let response = CreateUserOutput { id };
 
     Ok(Json(response))
 }
 
 #[handler]
-pub fn signin(Json(data):Json<CreateUserInput>,Data(s):Data<&Arc<Mutex<Store>>>) -> Result<Json<SignInOutput>,Error> {
+pub fn signin(
+    Json(data): Json<CreateUserInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+) -> Result<Json<SignInOutput>, Error> {
     let username = data.username;
     let password = data.password;
-    let mut locked_s = s.lock().unwrap(); 
-    
-    // Get user with stored hash, then verify password
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
     let user_result = locked_s.get_user_by_username(&username);
-    
+
     let user_id = match user_result {
         Ok((id, stored_hash)) => {
             if verify_password(&password, &stored_hash) {
-                Ok(id)
+                Some(id)
             } else {
-                Err(Error::from_status(StatusCode::UNAUTHORIZED))
+                None
             }
         }
-        Err(_) => Err(Error::from_status(StatusCode::UNAUTHORIZED))
+        Err(_) => {
+            let dummy_hash =
+                hash_password("dummy_password_for_timing").unwrap_or_else(|_| String::new());
+            let _ = verify_password(&password, &dummy_hash);
+            None
+        }
     };
 
-    match user_id {
-        Ok(user_id) => {
-            let claims = Claims {
-                sub: user_id.to_string(),
-                exp: 10000000000,
-            };
-            let jwt_secret = env::var("JWT_SECRET").map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
-            let token = encode(
-                &Header::default(),
-                &claims,
-                &EncodingKey::from_secret(jwt_secret.as_bytes()),
-            ).map_err(|_| Error::from_status(StatusCode::UNAUTHORIZED))?;
+    let user_id = user_id.ok_or_else(|| Error::from_status(StatusCode::UNAUTHORIZED))?;
 
-            let response = SignInOutput {
-                jwt: token
-            };
-            Ok(Json(response))
-        }
-        Err(_e)=>Err(Error::from_status(StatusCode::UNAUTHORIZED))
-    }
+    let expiry: u64 = env::var("JWT_EXPIRY")
+        .unwrap_or_else(|_| "12".to_string())
+        .parse()
+        .unwrap_or(12);
+
+    let expiration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + (expiry * 60 * 60);
+
+    let claims = Claims {
+        sub: user_id.to_string(),
+        exp: expiration,
+    };
+    let jwt_secret = env::var("JWT_SECRET")
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let token = encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(jwt_secret.as_bytes()),
+    )
+    .map_err(|_| Error::from_status(StatusCode::UNAUTHORIZED))?;
+
+    Ok(Json(SignInOutput { jwt: token }))
 }

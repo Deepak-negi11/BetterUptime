@@ -43,4 +43,13 @@ impl Store {
 
         Ok(website_result)
     }
+
+    pub fn get_all_websites(&mut self) -> Result<Vec<Website>, diesel::result::Error> {
+         use crate::schema::website::dsl::*;
+        
+         let results = website
+            .select(Website::as_select())
+            .load(&mut self.conn)?;
+         Ok(results)
+    }
 }
