@@ -1,11 +1,19 @@
-use store::redis::{x_add_bulk, WebsiteEvent};
+use store::redis::{create_redis_client, x_add_bulk, WebsiteEvent};
 use store::store::Store;
 use tokio::time::{interval, Duration};
 
 #[tokio::main]
 async fn main() {
-    let mut interval = interval(Duration::from_secs(3 * 60 * 1000));
+    let mut interval = interval(Duration::from_secs(3 * 60*1000));
     let mut store = Store::new().expect("Failed to connect to DB");
+
+    let client = create_redis_client()
+        .await
+        .expect("Failed to create Redis client");
+    let mut con = client
+        .get_multiplexed_async_connection()
+        .await
+        .expect("Failed to connect to Redis");
 
     loop {
         interval.tick().await;
@@ -23,10 +31,11 @@ async fn main() {
                     .map(|w| WebsiteEvent {
                         website: w.url,
                         id: w.id,
+                        redis_id: String::new(), 
                     })
                     .collect();
 
-                match x_add_bulk(events).await {
+                match x_add_bulk(events, &mut con).await {
                     Ok(ids) => println!("Pushed {} tasks to Redis.", ids.len()),
                     Err(e) => eprintln!("Failed to push to Redis: {}", e),
                 }

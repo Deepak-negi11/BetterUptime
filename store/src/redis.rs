@@ -1,111 +1,118 @@
+use redis::aio::MultiplexedConnection;
 use redis::streams::{StreamReadOptions, StreamReadReply};
-use redis::{Client, Commands, RedisResult};
+use redis::{AsyncCommands, Client, RedisResult};
 
 const STREAM_NAME: &str = "betterstack";
 
 #[derive(Debug, Clone)]
 pub struct WebsiteEvent {
-    pub website: String,
-    pub id: String,
+    pub website: String,  // The URL (e.g., "google.com")
+    pub id: String,       // Your DB ID (e.g., "site_123")
+    pub redis_id: String, // The REAL Redis ID (e.g., "1769...-0")
 }
 
+/// Creates the base Redis client. Call this once in main.
 pub async fn create_redis_client() -> RedisResult<Client> {
-    let client = Client::open("redis://127.0.0.1")?;
+    let client = Client::open("redis://127.0.0.1:6379")?;
     println!("Redis client created");
     Ok(client)
 }
 
-pub async fn x_add(website: &str, id: &str) -> RedisResult<()> {
-    let client = create_redis_client().await?;
-    let mut con = client.get_connection()?;
-
-    let _stream_id: String = con.xadd(STREAM_NAME, "*", &[("website", website), ("id", id)])?;
-    Ok(())
-}
-
-pub async fn x_add_bulk(events: Vec<WebsiteEvent>) -> RedisResult<Vec<String>> {
-    let client = create_redis_client().await?;
-    let mut con = client.get_connection()?;
+/// Adds multiple events to the Redis stream
+pub async fn x_add_bulk(
+    events: Vec<WebsiteEvent>,
+    con: &mut MultiplexedConnection,
+) -> RedisResult<Vec<String>> {
     let mut stream_ids = Vec::new();
 
     for event in events {
-        let stream_id: String = con.xadd(
-            STREAM_NAME,
-            "*",
-            &[("website", event.website), ("id", event.id)],
-        )?;
+        let stream_id: String = con
+            .xadd(
+                STREAM_NAME,
+                "*",
+                &[("website", event.website), ("id", event.id)],
+            )
+            .await?;
         stream_ids.push(stream_id);
     }
     Ok(stream_ids)
 }
 
-/// Ensure the consumer group exists, creating it if necessary
-pub fn ensure_group_exists(con: &mut redis::Connection, group_name: &str) -> RedisResult<()> {
-    // Try to create the group, ignore error if it already exists
+/// Ensures the Consumer Group exists in Redis.
+pub async fn ensure_group_exists(
+    con: &mut MultiplexedConnection,
+    group_name: &str,
+) -> RedisResult<()> {
     let result: RedisResult<()> = redis::cmd("XGROUP")
         .arg("CREATE")
         .arg(STREAM_NAME)
         .arg(group_name)
-        .arg("0")
-        .arg("MKSTREAM")
-        .query(con);
-    
+        .arg("0") // Start from the beginning of the stream
+        .arg("MKSTREAM") // Create the stream if it doesn't exist
+        .query_async(con)
+        .await;
+
     match result {
         Ok(_) => Ok(()),
-        Err(e) => {
-            // Ignore "BUSYGROUP" error (group already exists)
-            if e.to_string().contains("BUSYGROUP") {
-                Ok(())
-            } else {
-                Err(e)
-            }
-        }
+        Err(e) if e.to_string().contains("BUSYGROUP") => Ok(()), // Already exists
+        Err(e) => Err(e),
     }
 }
 
+/// Reads messages from a specific group.
+/// use start_id="0" for pending, and ">" for new messages.
 pub async fn x_read_group(
     consumer_group: &str,
     worker_id: &str,
+    con: &mut MultiplexedConnection,
+    start_id: &str,
 ) -> RedisResult<Vec<WebsiteEvent>> {
-    let client = create_redis_client().await?;
-    let mut con = client.get_connection()?;
-    
-    // Ensure group exists
-    ensure_group_exists(&mut con, consumer_group)?;
+    ensure_group_exists(con, consumer_group).await?;
 
-    // Use XREADGROUP command
-    let opts = StreamReadOptions::default()
+    let mut opts = StreamReadOptions::default()
         .group(consumer_group, worker_id)
-        .count(10)
-        .block(5000); // Block for 5 seconds
+        .count(10);
 
-    let reply: StreamReadReply = con.xread_options(&[STREAM_NAME], &[">"], &opts)?;
+    // Only block (Long Poll) if we are looking for NEW messages
+    if start_id == ">" {
+        opts = opts.block(5000);
+    }
+
+    let reply: StreamReadReply = con
+        .xread_options(&[STREAM_NAME], &[start_id], &opts)
+        .await?;
 
     let mut events = Vec::new();
     for stream_key in reply.keys {
         for stream_id in stream_key.ids {
-            let website: String = stream_id.get("website").unwrap_or_default();
-            let id: String = stream_id.get("id").unwrap_or_default();
-            events.push(WebsiteEvent { website, id });
+            events.push(WebsiteEvent {
+                website: stream_id.get("website").unwrap_or_default(),
+                id: stream_id.get("id").unwrap_or_default(),
+                redis_id: stream_id.id.clone(), // CRITICAL: Used for XACK
+            });
         }
     }
-    
+
+    // eprintln!("DEBUG: x_read_group for {} returned {} events", consumer_group, events.len());
     Ok(events)
 }
 
-/// Acknowledge processed messages in bulk
-pub async fn x_ack_bulk(consumer_group: &str, message_ids: &[String]) -> RedisResult<i64> {
-    let client = create_redis_client().await?;
-    let mut con = client.get_connection()?;
-    
+/// Acknowledges a list of message IDs.
+pub async fn x_ack_bulk(
+    consumer_group: &str,
+    message_ids: &[String],
+    con: &mut MultiplexedConnection,
+) -> RedisResult<i64> {
+    if message_ids.is_empty() {
+        return Ok(0);
+    }
+
     let mut cmd = redis::cmd("XACK");
     cmd.arg(STREAM_NAME).arg(consumer_group);
-    
+
     for id in message_ids {
         cmd.arg(id);
     }
-    
-    let count: i64 = cmd.query(&mut con)?;
-    Ok(count)
-}
 
+    cmd.query_async(con).await
+}

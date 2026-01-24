@@ -1,12 +1,8 @@
 use std::env;
-
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use poem::{Error, FromRequest, Request, RequestBody, http::{ StatusCode}};
 use crate::routes::user::Claims;
-
-
  pub struct UserId(pub String);
-
 
 impl <'a> FromRequest<'a> for UserId{
     async fn from_request(

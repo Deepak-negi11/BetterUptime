@@ -8,6 +8,6 @@ poem = "3.1.12"
 serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 store = { path = "../store" }
-jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
+jsonwebtoken = "9"
 argon2 = "0.5.3"
 rand_core = { version = "0.6", features = ["std"] }

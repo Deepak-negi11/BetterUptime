@@ -32,7 +32,7 @@ impl Store {
     Ok(website)
 
     }
-    pub fn get_website(&mut self, input_id: String,user_id: String) -> Result<Website, diesel::result::Error> {
+    pub fn get_website(&mut self, input_id: String,_user_id: String) -> Result<Website, diesel::result::Error> {
         use crate::schema::website::dsl::*;
 
         let website_result = website
