@@ -61,7 +61,8 @@ pub fn signin(
                 None
             }
         }
-        Err(_) => {
+        Err(e) => {
+            println!("User retrieval failed (User not found or DB error): {}", e);
             let dummy_hash =
                 hash_password("dummy_password_for_timing").unwrap_or_else(|_| String::new());
             let _ = verify_password(&password, &dummy_hash);
@@ -71,7 +72,7 @@ pub fn signin(
 
     let user_id = user_id.ok_or_else(|| Error::from_status(StatusCode::UNAUTHORIZED))?;
 
-    let expiry: u64 = env::var("JWT_EXPIRY")
+    let expiry: u64 = env::var("JWT_EXPIRATION")
         .unwrap_or_else(|_| "12".to_string())
         .parse()
         .unwrap_or(12);
@@ -86,14 +87,27 @@ pub fn signin(
         sub: user_id.to_string(),
         exp: expiration,
     };
-    let jwt_secret = env::var("JWT_SECRET")
-        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    // Debug: Check if JWT_SECRET loads
+    let jwt_secret = match env::var("JWT_SECRET") {
+        Ok(val) => {
+            val
+        }
+        Err(e) => {
+            println!("Failed to load JWT_SECRET: {}", e);
+            return Err(Error::from_status(StatusCode::INTERNAL_SERVER_ERROR));
+        }
+    };
+
     let token = encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(|_| Error::from_status(StatusCode::UNAUTHORIZED))?;
+    .map_err(|e| {
+        println!("Token encoding failed: {}", e);
+        Error::from_status(StatusCode::UNAUTHORIZED)
+    })?;
 
     Ok(Json(SignInOutput { jwt: token }))
 }

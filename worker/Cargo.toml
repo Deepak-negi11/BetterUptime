@@ -7,6 +7,7 @@ edition = "2021"
 tokio = { version = "1", features = ["full"] }
 store = { path = "../store" }
 redis = { version = "1.0.2", features = ["tokio-comp", "streams"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "native-tls"] }
 futures = "0.3"
 dotenvy = "0.15"
+lettre = "0.11.19"

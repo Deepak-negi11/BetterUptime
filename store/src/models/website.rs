@@ -1,55 +1,84 @@
 use chrono::Utc;
-use diesel::{prelude::*, SelectableHelper, ExpressionMethods, QueryDsl};
+use diesel::prelude::*;
 use uuid::Uuid;
-
 use crate::store::Store;
 
 #[derive(Queryable, Insertable, Selectable)]
 #[diesel(table_name = crate::schema::website)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Website {
-    pub id:String,
-    pub url:String,
-    pub time_added:chrono::NaiveDateTime,
-    pub user_id:String
+    pub id: String,
+    pub url: String,
+    pub time_added: chrono::NaiveDateTime,
+    pub user_id: String,
 }
 
-
 impl Store {
-    pub fn create_website(&mut self, user_id: String, url: String) -> Result<Website, diesel::result::Error> {
-        let id= Uuid::new_v4();
-        let website = Website{
-            id:id.to_string(),
+  
+    pub fn create_website(
+        &mut self,
+        user_id: String,
+        url: String,
+    ) -> Result<Website, diesel::result::Error> {
+        let website = Website {
+            id: Uuid::new_v4().to_string(),
             url,
-            time_added:Utc::now().naive_utc(),
-            user_id
+            time_added: Utc::now().naive_utc(),
+            user_id,
         };
+
         diesel::insert_into(crate::schema::website::table)
-        .values(&website)
-        .returning(Website::as_returning())
-        .get_result(&mut self.conn)?;
-
-    Ok(website)
-
+            .values(&website)
+            .returning(Website::as_returning())
+            .get_result(&mut self.conn)
     }
-    pub fn get_website(&mut self, input_id: String,_user_id: String) -> Result<Website, diesel::result::Error> {
+
+   
+    pub fn delete_website(
+        &mut self,
+        target_id: &str,
+        owner_id: &str,
+    ) -> Result<usize, diesel::result::Error> {
         use crate::schema::website::dsl::*;
 
-        let website_result = website
-            .filter(id.eq(&input_id))
-            .filter(user_id.eq(&user_id))
-            .select(Website::as_select())
-            .first(&mut self.conn)?;
-
-        Ok(website_result)
+        diesel::delete(
+            website
+                .filter(id.eq(target_id))
+                .filter(user_id.eq(owner_id)),
+        )
+        .execute(&mut self.conn)
     }
 
-    pub fn get_all_websites(&mut self) -> Result<Vec<Website>, diesel::result::Error> {
-         use crate::schema::website::dsl::*;
-        
-         let results = website
+   
+    pub fn get_website(
+        &mut self,
+        target_id: &str,
+        owner_id: &str,
+    ) -> Result<Website, diesel::result::Error> {
+        use crate::schema::website::dsl::*;
+
+        website
+            .filter(id.eq(target_id))
+            .filter(user_id.eq(owner_id))
             .select(Website::as_select())
-            .load(&mut self.conn)?;
-         Ok(results)
+            .first(&mut self.conn)
+    }
+
+   
+    pub fn get_user_websites(&mut self, owner_id: &str) -> Result<Vec<Website>, diesel::result::Error> {
+        use crate::schema::website::dsl::*;
+
+        website
+            .filter(user_id.eq(owner_id))
+            .select(Website::as_select())
+            .load(&mut self.conn)
+    }
+
+
+    pub fn get_all_websites_global(&mut self) -> Result<Vec<Website>, diesel::result::Error> {
+        use crate::schema::website::dsl::*;
+
+        website
+            .select(Website::as_select())
+            .load(&mut self.conn)
     }
 }

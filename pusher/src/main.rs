@@ -4,7 +4,7 @@ use tokio::time::{interval, Duration};
 
 #[tokio::main]
 async fn main() {
-    let mut interval = interval(Duration::from_secs(3 * 60*1000));
+    let mut interval = interval(Duration::from_secs(30)); 
     let mut store = Store::new().expect("Failed to connect to DB");
 
     let client = create_redis_client()
@@ -19,7 +19,7 @@ async fn main() {
         interval.tick().await;
         println!("Pusher tick: Checking for websites...");
 
-        match store.get_all_websites() {
+        match store.get_all_websites_global() {
             Ok(websites) => {
                 if websites.is_empty() {
                     println!("No websites found.");
@@ -31,7 +31,7 @@ async fn main() {
                     .map(|w| WebsiteEvent {
                         website: w.url,
                         id: w.id,
-                        redis_id: String::new(), 
+                        redis_id: String::new(),
                     })
                     .collect();
 

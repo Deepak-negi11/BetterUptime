@@ -1,0 +1,1 @@
+ALTER TABLE website ADD COLUMN is_paused BOOLEAN NOT NULL DEFAULT 'f';

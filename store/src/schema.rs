@@ -27,6 +27,7 @@ diesel::table! {
         url -> Text,
         time_added -> Timestamp,
         user_id -> Text,
+        is_paused -> Bool,
     }
 }
 

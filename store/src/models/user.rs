@@ -28,8 +28,7 @@ impl Store {
     Ok(id.to_string())
 
     }
-    /// Returns user id and password hash for the given username
-    /// Password verification should be done in the API layer using the hashing utilities
+    
     pub fn get_user_by_username(&mut self, input_username: &str) -> Result<(String, String), diesel::result::Error> {
         use crate::schema::user::dsl::*;
         let user_result = user
