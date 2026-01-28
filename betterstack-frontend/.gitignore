@@ -66,3 +66,13 @@ target/
 **/.cl*
 **/.roo*
 **/skills/
+.codebuddy/
+.codex/
+.commandcode/
+.crush/
+.continue/
+.factory/
+.gemini/
+.goose/
+.kilocode/
+.kiro/
