@@ -16,6 +16,7 @@ export default function SignUpPage() {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
+        email: ''
     });
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +27,8 @@ export default function SignUpPage() {
         try {
             const response = await axios.post(`${BACKEND_URL}/user/signup`, {
                 username: formData.username,
-                password: formData.password
+                password: formData.password,
+                email: formData.email
             });
 
             console.log('Signup successful:', formData.username);
@@ -89,6 +91,22 @@ export default function SignUpPage() {
                                     required
                                 />
                             </div>
+
+                            {/* Email Field */}
+                            <div>
+                                <label htmlFor="email" className="block text-sm font-medium text-white/70 mb-2">
+                                    Email
+                                </label>
+                                <input
+                                    type="email"
+                                    id="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full px-4 py-3 bg-[#0C0C14] border border-[#1E293B] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all"
+                                    placeholder="john@example.com"
+                                    required
+                                />
+                            </div>
                             {/* Password Field */}
                             <div>
                                 <label htmlFor="password" className="block text-sm font-medium text-white/70 mb-2">
@@ -108,7 +126,7 @@ export default function SignUpPage() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                                        className="absolute  right-4 top-7 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
                                     >
                                         {showPassword ? (
                                             <EyeOff className="w-5 h-5" />
@@ -116,6 +134,8 @@ export default function SignUpPage() {
                                             <Eye className="w-5 h-5" />
                                         )}
                                     </button>
+
+
                                 </div>
                                 <p className="mt-2 text-xs text-white/40">
                                     Must be at least 8 characters
