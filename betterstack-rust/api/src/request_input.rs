@@ -1,11 +1,17 @@
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct CreateWebsiteInput{
-    pub url:String
+pub struct CreateWebsiteInput {
+    pub url: String,
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct CreateUserInput {
+    pub username: String,
+    pub password: String,
+    pub email: String,
+}
 
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct CreateUserInput{
-    pub username:String,
-    pub password:String
+pub struct SignInInput {
+    pub username: String,
+    pub password: String,
 }

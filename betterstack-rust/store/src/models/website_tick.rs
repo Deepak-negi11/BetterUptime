@@ -1,4 +1,4 @@
-use chrono::{NaiveDateTime, Duration, Utc};
+use chrono::{Duration, NaiveDateTime, Utc};
 use diesel::{
     deserialize::{self, FromSql, FromSqlRow},
     expression::AsExpression,
@@ -14,7 +14,10 @@ use crate::store::Store;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, AsExpression, FromSqlRow)]
 #[diesel(sql_type = WebsiteStatusType)]
-pub enum WebsiteStatus { Up, Down }
+pub enum WebsiteStatus {
+    Up,
+    Down,
+}
 
 impl ToSql<WebsiteStatusType, Pg> for WebsiteStatus {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
@@ -55,8 +58,9 @@ pub struct WebsiteBucket {
     pub avg_response_time: f64,
     #[diesel(sql_type = diesel::sql_types::BigInt)]
     pub down_count: i64,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    pub total_count: i64,
 }
-
 
 impl Store {
     pub fn create_website_tick(
@@ -68,7 +72,10 @@ impl Store {
     ) -> Result<WebsiteTick, diesel::result::Error> {
         let tick = WebsiteTick {
             id: Uuid::new_v4().to_string(),
-            response_time, status, region_id, website_id,
+            response_time,
+            status,
+            region_id,
+            website_id,
             created_at: Utc::now().naive_utc(),
         };
 
@@ -94,28 +101,104 @@ impl Store {
             query = query.filter(region_id.eq(r_id));
         }
 
-        query.order(created_at.desc()).limit(limit).load::<WebsiteTick>(&mut self.conn)
+        query
+            .order(created_at.desc())
+            .limit(limit)
+            .load::<WebsiteTick>(&mut self.conn)
     }
 
     pub fn get_analytics_graph(
         &mut self,
         target_website_id: &str,
-        days_back: i64,
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+        region: Option<&str>,
     ) -> Result<Vec<WebsiteBucket>, diesel::result::Error> {
-        let start_time = (Utc::now() - Duration::days(days_back)).naive_utc();
+        let duration = end - start;
+        let days = duration.num_days();
 
-        diesel::sql_query(
-            "SELECT 
-                date_trunc('hour', created_at) as bucket, 
-                AVG(response_time)::double precision as avg_response_time,
-                COUNT(*) FILTER (WHERE status = 'DOWN') as down_count
+        let resolve_granularity = match days {
+            0..=1 => "2 minutes",
+            2..=7 => "15 minutes",
+            8..=30 => "30 minutes",
+            _ => "1 hour",
+        };
+
+        let granularity = resolve_granularity;
+
+        let sql = format!(
+            r#"
+            SELECT 
+                to_timestamp(
+                    floor(
+                        extract(epoch from created_at) 
+                        / extract(epoch from interval '{interval}')
+                    ) * extract(epoch from interval '{interval}')
+                ) AS bucket,
+                AVG(response_time)::DOUBLE PRECISION AS avg_response_time,
+                COUNT(*) FILTER (WHERE status = 'DOWN')::BIGINT AS down_count,
+                COUNT(*)::BIGINT AS total_count
             FROM website_tick
-            WHERE website_id = $1 AND created_at > $2
+            WHERE website_id = $1
+              AND created_at >= $2
+              AND created_at <= $3
+              AND ($4 IS NULL OR region_id = $4)
             GROUP BY bucket
-            ORDER BY bucket ASC"
-        )
-        .bind::<diesel::sql_types::Text, _>(target_website_id)
-        .bind::<diesel::sql_types::Timestamp, _>(start_time)
-        .load::<WebsiteBucket>(&mut self.conn)
+            ORDER BY bucket ASC
+            "#,
+            interval = granularity
+        );
+
+        diesel::sql_query(sql)
+            .bind::<diesel::sql_types::Text, _>(target_website_id)
+            .bind::<diesel::sql_types::Timestamp, _>(start)
+            .bind::<diesel::sql_types::Timestamp, _>(end)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(region)
+            .load::<WebsiteBucket>(&mut self.conn)
+    }
+
+    pub fn get_current_streak(
+        &mut self,
+        target_website_id: &str,
+    ) -> Result<Option<i64>, diesel::result::Error> {
+        use crate::schema::website_tick::dsl::*;
+
+        // 1. Get the latest tick to determine current status
+        let latest_tick = website_tick
+            .filter(website_id.eq(target_website_id))
+            .order(created_at.desc())
+            .first::<WebsiteTick>(&mut self.conn)
+            .optional()?;
+
+        let latest = match latest_tick {
+            Some(t) => t,
+            None => return Ok(None),
+        };
+
+        let current_status = latest.status;
+
+        // 2. Find the most recent tick that has a DIFFERENT status
+        let last_change = website_tick
+            .filter(website_id.eq(target_website_id))
+            .filter(status.ne(current_status))
+            .order(created_at.desc())
+            .first::<WebsiteTick>(&mut self.conn)
+            .optional()?;
+
+        let streak_start = match last_change {
+            Some(tick) => tick.created_at,
+            None => {
+                // If never changed, start from the very first tick
+                website_tick
+                    .filter(website_id.eq(target_website_id))
+                    .order(created_at.asc())
+                    .first::<WebsiteTick>(&mut self.conn)?
+                    .created_at
+            }
+        };
+
+        let now = Utc::now().naive_utc();
+        let duration = now - streak_start;
+        Ok(Some(duration.num_seconds()))
     }
 }

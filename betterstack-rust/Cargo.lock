@@ -50,6 +50,7 @@ dependencies = [
  "poem",
  "rand_core",
  "serde",
+ "serde_json",
  "store",
  "tokio",
 ]
@@ -178,6 +179,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits",
+ "serde",
  "wasm-bindgen",
  "windows-link",
 ]
@@ -2510,6 +2512,7 @@ dependencies = [
  "reqwest",
  "store",
  "tokio",
+ "url",
 ]
 
 [[package]]

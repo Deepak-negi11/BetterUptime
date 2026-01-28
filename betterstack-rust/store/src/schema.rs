@@ -18,6 +18,7 @@ diesel::table! {
         id -> Text,
         username -> Text,
         password -> Text,
+        email -> Varchar,
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::request_input::CreateUserInput;
+use crate::request_input::{CreateUserInput, SignInInput};
 use crate::request_output::{CreateUserOutput, SignInOutput};
 use crate::routes::hashing::{hash_password, verify_password};
 use std::env;
@@ -27,13 +27,14 @@ pub fn signup(
 ) -> Result<Json<CreateUserOutput>, Error> {
     let username = data.username;
     let password = data.password;
+    let email = data.email;
     let hashed_password = hash_password(&password)
         .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
     let mut locked_s = s
         .lock()
         .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
     let id = locked_s
-        .sign_up(username, hashed_password)
+        .sign_up(username, hashed_password, email)
         .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
     let response = CreateUserOutput { id };
 
@@ -42,7 +43,7 @@ pub fn signup(
 
 #[handler]
 pub fn signin(
-    Json(data): Json<CreateUserInput>,
+    Json(data): Json<SignInInput>,
     Data(s): Data<&Arc<Mutex<Store>>>,
 ) -> Result<Json<SignInOutput>, Error> {
     let username = data.username;
@@ -90,9 +91,7 @@ pub fn signin(
 
     // Debug: Check if JWT_SECRET loads
     let jwt_secret = match env::var("JWT_SECRET") {
-        Ok(val) => {
-            val
-        }
+        Ok(val) => val,
         Err(e) => {
             println!("Failed to load JWT_SECRET: {}", e);
             return Err(Error::from_status(StatusCode::INTERNAL_SERVER_ERROR));

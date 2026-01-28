@@ -11,3 +11,4 @@ reqwest = { version = "0.12", features = ["json", "native-tls"] }
 futures = "0.3"
 dotenvy = "0.15"
 lettre = "0.11.19"
+url = "2.5.8"

@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use store::models::website_tick::WebsiteStatus;
 use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
 use store::store::Store;
+use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -122,11 +123,12 @@ async fn run_worker_cycle(
 
 async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (String, String, u64) {
     let start = Instant::now();
-    let full_url = if url.starts_with("http") {
-        url.to_string()
-    } else {
-        format!("https://{}", url)
-    };
+    let mut full_url = url.trim().to_lowercase();
+    if !full_url.starts_with("http://") && !full_url.starts_with("https://") {
+        full_url = format!("https://{}", full_url);
+    }
+
+    let _ = Url::parse(&full_url).ok().map(|u| u.to_string());
 
     let max_retries = 3;
     let mut last_error = String::new();
