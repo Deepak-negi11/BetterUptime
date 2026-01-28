@@ -39,6 +39,30 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
 # Ignore AI agent skills and metadata
 .agents/
 **/ .agents/
+
+
+# Ignore environment secrets
+.env
+api/.env
+store/.env
+worker/.env
+target/
+
+
+# AI Agent/Skill Clutter
+.agent/
+.agents/
+.cline/
+.cursor/
+.roo/
+.trae/
+.windsurf/
+**/.agent*
+**/.cl*
+**/.roo*
+**/skills/
