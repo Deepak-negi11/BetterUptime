@@ -1,0 +1,24 @@
+# REGIONAL WORKER DEPLOYMENT
+# Deploy this on each regional DigitalOcean droplet
+#
+# Before running, create a .env.worker file with:
+#   CENTRAL_IP=139.59.74.210
+#   DB_PASSWORD=your_db_password
+#   REDIS_PASSWORD=your_redis_password
+#   REGION_ID=india-mumbai   (or: us-east, eu-west, singapore, etc.)
+#
+# Usage:
+#   docker-compose -f docker-compose.worker.yml --env-file .env.worker up -d --build
+
+services:
+
+  worker:
+    build: ./betterstack-rust
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@${CENTRAL_IP}:5432/betteruptime
+      REDIS_URL: redis://:${REDIS_PASSWORD}@${CENTRAL_IP}:6379
+      REGION_ID: ${REGION_ID}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+    command: [ "./worker" ]

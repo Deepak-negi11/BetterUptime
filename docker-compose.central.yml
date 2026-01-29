@@ -1,0 +1,75 @@
+# CENTRAL SERVER DEPLOYMENT
+# Deploy this on your main DigitalOcean droplet (139.59.74.210)
+# Contains: PostgreSQL, Redis, API, Pusher
+#
+# Usage:
+#   docker-compose -f docker-compose.central.yml up -d --build
+
+services:
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: betteruptime
+    ports:
+      - "5432:5432" # Exposed for remote workers
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # Allow connections from any IP (workers from other droplets)
+    command: >
+      postgres -c listen_addresses='*' -c password_encryption=scram-sha-256
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379" # Exposed for remote workers
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./betterstack-rust
+    restart: always
+    ports:
+      - "${API_PORT}:3001"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/betteruptime
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [ "./api" ]
+
+  pusher:
+    build: ./betterstack-rust
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/betteruptime
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [ "./pusher" ]
+
+volumes:
+  postgres_data:

@@ -1,0 +1,32 @@
+# =====================================================
+# WORKER DEPLOYMENT (For Regional Droplets)
+# =====================================================
+#
+# USAGE: Upload this to regional droplets
+#
+# Directory structure:
+#   /root/betteruptime/
+#   ├── docker-compose.yml  (this file)
+#   ├── .env                (environment variables)
+#   ├── Dockerfile
+#   ├── Cargo.toml
+#   └── ... (rest of Rust code)
+#
+# Commands:
+#   docker compose up -d --build
+#   docker compose logs -f
+
+services:
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@${CENTRAL_IP}:5432/betteruptime
+      REDIS_URL: redis://${CENTRAL_IP}:6379
+      REGION_ID: ${REGION_ID}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    command: [ "./worker" ]

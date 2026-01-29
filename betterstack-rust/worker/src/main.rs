@@ -10,51 +10,33 @@ use url::Url;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenvy::dotenv().ok();
-    let http_client = HttpClient::builder()
-        .user_agent("BetterUptime/1.0")
-        .timeout(Duration::from_secs(10))
-        .build()?;
-    let redis_client = create_redis_client().await?;
-    let store = Arc::new(Mutex::new(Store::new().expect("Failed to connect to DB")));
-
-    let regions = vec!["india-1", "us-east-1","asia-1"];
-    let mut handles = vec![];
-
-    for region in regions {
-        let client = http_client.clone();
-        let r_id = region.to_string();
-        let w_id = format!("{}_worker_1", region);
-        let store_clone = Arc::clone(&store);
-
-        let mut conn = redis_client.get_multiplexed_async_connection().await?;
-
-        let handle = tokio::spawn(async move {
-            println!("🚀 Worker Task Started: region={}", r_id);
-            loop {
-                match run_worker_cycle(&r_id, &w_id, &client, &mut conn, &store_clone).await {
-                    Ok(_) => {
-                    }
-                    Err(e) => {
-                        
-                        let err_msg = e.to_string();
-
-                        if err_msg.contains("timed out") || err_msg.contains("timeout") {
-                        
-                        } else {
-
-                            eprintln!("🔥 REAL CRITICAL ERROR [{}]: {:?}", r_id, e);
-                            tokio::time::sleep(Duration::from_secs(2)).await;
-                        }
-                    }
-                }
-            }
-        });
-        handles.push(handle);
-    }
 
     
-    futures::future::join_all(handles).await;
-    Ok(())
+    let region_id = std::env::var("REGION_ID")
+        .expect("REGION_ID must be set (e.g., 'india-mumbai')");
+
+   
+    let worker_id = format!("{}_worker_1", region_id);
+
+    let http_client = HttpClient::builder()
+        .user_agent("BetterUptime-Worker/1.0")
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    
+    let redis_client = create_redis_client().await?;
+    let store = Arc::new(Mutex::new(Store::new().expect("Failed to connect to DB")));
+    let mut conn = redis_client.get_multiplexed_async_connection().await?;
+
+    println!("🚀 Real-Region Worker Started: region={}", region_id);
+
+    
+    loop {
+        if let Err(e) = run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await {
+            eprintln!("🔥 Critical Error in {}: {:?}", region_id, e);
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
 }
 
 async fn run_worker_cycle(

@@ -1,0 +1,92 @@
+# =====================================================
+# CENTRAL SERVER DEPLOYMENT (For DigitalOcean Droplet)
+# =====================================================
+#
+# USAGE: Upload this to your droplet with the Rust code
+#
+# Directory structure on droplet should be:
+#   /root/betteruptime/
+#   ├── docker-compose.yml  (this file)
+#   ├── .env                (environment variables)
+#   ├── Dockerfile
+#   ├── Cargo.toml
+#   ├── Cargo.lock
+#   ├── api/
+#   ├── pusher/
+#   ├── worker/   (optional on central, can be removed)
+#   └── store/
+#
+# Commands:
+#   docker compose up -d --build
+#   docker compose logs -f
+
+services:
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-deepak}
+      POSTGRES_DB: betteruptime
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres -c listen_addresses='*' -c password_encryption=scram-sha-256
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${API_PORT:-3001}:3001"
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-deepak}@db:5432/betteruptime
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-deepak}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [ "./api" ]
+
+  pusher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-deepak}@db:5432/betteruptime
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [ "./pusher" ]
+
+volumes:
+  postgres_data:

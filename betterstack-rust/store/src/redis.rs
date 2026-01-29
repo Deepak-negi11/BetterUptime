@@ -13,7 +13,9 @@ pub struct WebsiteEvent {
 
 /// Creates the base Redis client. Call this once in main.
 pub async fn create_redis_client() -> RedisResult<Client> {
-    let client = Client::open("redis://127.0.0.1:6379")?;
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let client = Client::open(redis_url.as_str())?;
     println!("Redis client created");
     Ok(client)
 }

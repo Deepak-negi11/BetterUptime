@@ -12,3 +12,6 @@ futures = "0.3"
 dotenvy = "0.15"
 lettre = "0.11.19"
 url = "2.5.8"
+openssl = {version="0.10.75" , features=["vendored"]}
+pq-sys = { version = "0.6", features = ["bundled"] }
+diesel = { version = "2.2", features = ["postgres"] }
