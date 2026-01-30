@@ -65,7 +65,7 @@ export function Header({ isLoggedIn = false }: HeaderProps) {
         </nav>
 
         {/* Right Actions */}
-        <div className="hidden md:flex items-center gap-6 z-50">
+        <div className="hidden lg:flex items-center gap-6 z-50 ">
           {isLoggedIn ? (
             <>
               <Button
@@ -89,7 +89,7 @@ export function Header({ isLoggedIn = false }: HeaderProps) {
               <Button
                 variant="ghost"
                 onClick={() => router.push('/user/signin')}
-                className="text-gray-300 hover:text-white hover:bg-transparent transition-colors font-medium text-[14px] p-0 h-auto"
+                className="text-gray-300 hover:text-white  hover:bg-transparent transition-colors font-medium text-[14px] p-0 h-auto"
               >
                 Sign in
               </Button>
@@ -103,7 +103,6 @@ export function Header({ isLoggedIn = false }: HeaderProps) {
           )}
         </div>
 
-        {/* Mobile Menu Toggle */}
         <button className="lg:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors z-50">
           <Menu className="w-6 h-6" />
         </button>
