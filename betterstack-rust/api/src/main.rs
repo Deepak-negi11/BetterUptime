@@ -16,7 +16,7 @@ async fn main() -> Result<(), std::io::Error> {
     let s = Arc::new(Mutex::new(Store::new().unwrap()));
 
     let cors = Cors::new()
-        .allow_origin("http://localhost:3000")
+        .allow_origins_fn(|_| true)
         .allow_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
         .allow_headers(vec!["Content-Type", "Authorization"])
         .allow_credentials(true);
