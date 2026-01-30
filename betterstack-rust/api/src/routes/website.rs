@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use chrono::{DateTime, Duration, Utc};
 use std::sync::{Arc, Mutex};
-use store::models::website_tick::WebsiteStatus;
+
 use store::store::Store;
 
 use crate::alert::send_email_alert;
@@ -111,10 +111,7 @@ pub fn get_website(
     let recent_ticks = ticks
         .into_iter()
         .map(|t| TickInfo {
-            status: match t.status {
-                WebsiteStatus::Up => "up".to_string(),
-                WebsiteStatus::Down => "down".to_string(),
-            },
+            status: t.status.to_lowercase(),
             response_time: t.response_time,
             created_at: t.created_at.to_string(),
             region_id: t.region_id,
@@ -192,10 +189,7 @@ pub fn get_websites(
                 url: w.url,
                 status: tick
                     .as_ref()
-                    .map_or("unknown".to_string(), |t| match t.status {
-                        WebsiteStatus::Up => "up".to_string(),
-                        WebsiteStatus::Down => "down".to_string(),
-                    }),
+                    .map_or("unknown".to_string(), |t| t.status.to_lowercase()),
                 last_check: tick.as_ref().map(|t| t.created_at.to_string()),
                 response_time: tick.as_ref().map(|t| t.response_time),
                 region_id: tick.as_ref().map(|t| t.region_id.clone()),

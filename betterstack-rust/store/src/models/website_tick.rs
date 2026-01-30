@@ -1,50 +1,15 @@
-use chrono::{Duration, NaiveDateTime, Utc};
-use diesel::{
-    deserialize::{self, FromSql, FromSqlRow},
-    expression::AsExpression,
-    pg::{Pg, PgValue},
-    prelude::*,
-    serialize::{self, IsNull, Output, ToSql},
-};
-use std::io::Write;
+use chrono::{NaiveDateTime, Utc};
+use diesel::prelude::*;
 use uuid::Uuid;
 
-use crate::schema::sql_types::WebsiteStatus as WebsiteStatusType;
 use crate::store::Store;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, AsExpression, FromSqlRow)]
-#[diesel(sql_type = WebsiteStatusType)]
-pub enum WebsiteStatus {
-    Up,
-    Down,
-}
-
-impl ToSql<WebsiteStatusType, Pg> for WebsiteStatus {
-    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-        match *self {
-            WebsiteStatus::Up => out.write_all(b"UP")?,
-            WebsiteStatus::Down => out.write_all(b"DOWN")?,
-        }
-        Ok(IsNull::No)
-    }
-}
-
-impl FromSql<WebsiteStatusType, Pg> for WebsiteStatus {
-    fn from_sql(bytes: PgValue<'_>) -> deserialize::Result<Self> {
-        match bytes.as_bytes() {
-            b"UP" => Ok(WebsiteStatus::Up),
-            b"DOWN" => Ok(WebsiteStatus::Down),
-            _ => Err("Unrecognized enum variant".into()),
-        }
-    }
-}
 
 #[derive(Queryable, Insertable, Selectable)]
 #[diesel(table_name = crate::schema::website_tick)]
 pub struct WebsiteTick {
     pub id: String,
     pub response_time: i32,
-    pub status: WebsiteStatus,
+    pub status: String,
     pub region_id: String,
     pub website_id: String,
     pub created_at: NaiveDateTime,
@@ -68,7 +33,7 @@ impl Store {
         website_id: String,
         region_id: String,
         response_time: i32,
-        status: WebsiteStatus,
+        status: String,
     ) -> Result<WebsiteTick, diesel::result::Error> {
         let tick = WebsiteTick {
             id: Uuid::new_v4().to_string(),
@@ -180,7 +145,7 @@ impl Store {
         // 2. Find the most recent tick that has a DIFFERENT status
         let last_change = website_tick
             .filter(website_id.eq(target_website_id))
-            .filter(status.ne(current_status))
+            .filter(status.ne(&current_status))
             .order(created_at.desc())
             .first::<WebsiteTick>(&mut self.conn)
             .optional()?;

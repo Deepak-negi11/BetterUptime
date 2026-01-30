@@ -2,7 +2,7 @@ use redis::aio::MultiplexedConnection;
 use reqwest::Client as HttpClient;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use store::models::website_tick::WebsiteStatus;
+
 use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
 use store::store::Store;
 use url::Url;
@@ -11,27 +11,26 @@ use url::Url;
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenvy::dotenv().ok();
 
-    
-    let region_id = std::env::var("REGION_ID")
-        .expect("REGION_ID must be set (e.g., 'india-mumbai')");
+    let region_id =
+        std::env::var("REGION_ID").expect("REGION_ID must be set (e.g., 'india-mumbai')");
 
-   
     let worker_id = format!("{}_worker_1", region_id);
 
     let http_client = HttpClient::builder()
         .user_agent("BetterUptime-Worker/1.0")
         .timeout(Duration::from_secs(10))
         .build()?;
-    
+
     let redis_client = create_redis_client().await?;
     let store = Arc::new(Mutex::new(Store::new().expect("Failed to connect to DB")));
     let mut conn = redis_client.get_multiplexed_async_connection().await?;
 
     println!("🚀 Real-Region Worker Started: region={}", region_id);
 
-    
     loop {
-        if let Err(e) = run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await {
+        if let Err(e) =
+            run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await
+        {
             eprintln!("🔥 Critical Error in {}: {:?}", region_id, e);
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
@@ -46,7 +45,6 @@ async fn run_worker_cycle(
     redis_conn: &mut MultiplexedConnection,
     store: &Arc<Mutex<Store>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-
     let mut events = x_read_group(region_id, worker_id, redis_conn, "0").await?;
 
     if events.is_empty() {
@@ -73,17 +71,11 @@ async fn run_worker_cycle(
     {
         let mut store_lock = store.lock().unwrap();
         for (website_id, status, response_time) in &results {
-            let ws_status = if status == "Up" {
-                WebsiteStatus::Up
-            } else {
-                WebsiteStatus::Down
-            };
-
             match store_lock.create_website_tick(
                 website_id.clone(),
                 region_id.to_string(),
                 *response_time as i32,
-                ws_status,
+                status.to_string(),
             ) {
                 Ok(_) => println!(
                     "[{}] ✅ Saved tick: {} = {} ({}ms)",
@@ -94,7 +86,6 @@ async fn run_worker_cycle(
         }
     }
 
-  
     let message_ids: Vec<String> = events.iter().map(|e| e.redis_id.clone()).collect();
     let ack_count = x_ack_bulk(region_id, &message_ids, redis_conn).await?;
 
@@ -118,7 +109,7 @@ async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (Str
     for attempt in 1..=max_retries {
         let result = client
             .get(&full_url)
-            .timeout(Duration::from_secs(10)) 
+            .timeout(Duration::from_secs(10))
             .send()
             .await;
 
