@@ -57,6 +57,7 @@ pub struct WebsiteInfo {
     pub last_check: Option<String>,
     pub response_time: Option<i32>,
     pub region_id: Option<String>,
+    pub streak: Option<i64>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

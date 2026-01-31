@@ -142,7 +142,7 @@ export default function WebsiteDetailPage() {
     const streakSeconds = (website.streak && website.streak > 0)
         ? website.streak
         : Math.floor((new Date().getTime() - new Date(website.created_at + (website.created_at.endsWith("Z") ? "" : "Z")).getTime()) / 1000);
-    const isDateLimit = false; // Backend provides exact streak now
+    const isDateLimit = false;
 
     const formatTimeAgo = (date: Date | null) => {
         if (!date) return 'Never';
@@ -154,6 +154,7 @@ export default function WebsiteDetailPage() {
         if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
         return `${Math.floor(diffInSeconds / 86400)} days ago`;
     };
+    
     const formatStreak = (seconds: number) => {
         if (seconds < 60) return `${seconds}s`;
         const mins = Math.floor(seconds / 60);
@@ -199,10 +200,10 @@ export default function WebsiteDetailPage() {
     const handleSendTestAlert = async () => {
         const token = localStorage.getItem('token');
         try {
-           const response =  await axios.post(`${BACKEND_URL}/website/${id}/alert-test`, {}, {
+            const response = await axios.post(`${BACKEND_URL}/website/${id}/alert-test`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            if(response.data.status === 'success'){
+            if (response.data.status === 'success') {
                 alert('Test alert sent successfully!');
             }
         } catch (err) {

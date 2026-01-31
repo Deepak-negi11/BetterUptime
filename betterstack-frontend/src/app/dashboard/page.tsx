@@ -120,17 +120,7 @@ export default function DashboardPage() {
         }
     };
 
-    const getTimeAgo = (dateString: string | null) => {
-        if (!dateString) return '';
-        const date = new Date(dateString + (dateString.endsWith('Z') ? '' : 'Z'));
-        const now = new Date();
-        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-        if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
-        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-        return `${Math.floor(diffInSeconds / 86400)} days ago`;
-    };
 
     return (
         <div className="min-h-screen bg-[#0B0C15] text-white font-sans">
@@ -148,13 +138,14 @@ export default function DashboardPage() {
                                 type="text"
                                 placeholder="Search"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => setSearchQuery(e.target.value)
+                                }
                                 className="w-full bg-[#13141F] border border-[#2D3748] rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#5850ec] transition-colors"
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-[#2D3748] text-[10px] text-white/40">
                                 /
                             </div>
-                        </div>
+                        </div >
 
                         <Button
                             onClick={() => setShowAddModal(true)}
@@ -163,8 +154,8 @@ export default function DashboardPage() {
                             Create monitor
                             <ChevronDown className="w-4 h-4 ml-2 border-l border-white/20 pl-2" />
                         </Button>
-                    </div>
-                </div>
+                    </div >
+                </div >
 
                 <div className="border border-[#2D3748] rounded-lg overflow-hidden bg-[#0B0C15]">
                     <div className="bg-[#13141F] px-4 py-3 flex items-center gap-2 border-b border-[#2D3748]">
@@ -209,10 +200,9 @@ export default function DashboardPage() {
                                                 </span>
                                                 {website.last_check && (
                                                     <>
-                                                        <span className="text-white/30">·</span>
-                                                        <span className="text-white/40">
-                                                            {getTimeAgo(website.last_check)}
-                                                        </span>
+                                                        <span className="text-white/30">.</span>
+
+
                                                     </>
                                                 )}
                                             </div>
@@ -233,7 +223,7 @@ export default function DashboardPage() {
                                                 <div className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
                                                 </div>
-                                                {getTimeAgo(website.last_check)}
+
                                             </div>
 
                                             <button className="p-1 hover:text-white transition-colors">
@@ -247,69 +237,71 @@ export default function DashboardPage() {
                     )}
 
                 </div>
-            </main>
+            </main >
 
-            {/* Add Website Modal */}
-            {showAddModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-[#13141F] border border-[#1E293B] rounded-xl p-6 w-full max-w-md shadow-2xl">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-semibold text-white">Add Monitor</h3>
-                            <button
-                                onClick={() => setShowAddModal(false)}
-                                className="text-white/40 hover:text-white transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
 
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
-                                <AlertCircle className="w-4 h-4" />
-                                {error}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleAddWebsite}>
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-white/70 mb-2">
-                                    URL to monitor
-                                </label>
-                                <input
-                                    type="url"
-                                    value={newUrl}
-                                    onChange={(e) => setNewUrl(e.target.value)}
-                                    placeholder="https://example.com"
-                                    className="w-full px-4 py-3 bg-[#0C0C14] border border-[#2D3748] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all"
-                                    required
-                                    autoFocus
-                                />
-                                <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
-                                    <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                    We'll monitor this URL every 3 minutes from Europe
-                                </div>
-                            </div>
-                            <div className="flex gap-3">
-                                <Button
-                                    type="button"
+            {
+                showAddModal && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#13141F] border border-[#1E293B] rounded-xl p-6 w-full max-w-md shadow-2xl">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-xl font-semibold text-white">Add Monitor</h3>
+                                <button
                                     onClick={() => setShowAddModal(false)}
-                                    variant="outline"
-                                    className="flex-1 bg-transparent border-[#2D3748] text-white hover:bg-[#2D3748]"
+                                    className="text-white/40 hover:text-white transition-colors"
                                 >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={isAdding}
-                                    className="flex-1 bg-[#5850ec] hover:bg-[#4338ca] text-white disabled:opacity-50"
-                                >
-                                    {isAdding ? 'Adding...' : 'Create monitor'}
-                                </Button>
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                        </form>
+
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {error}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleAddWebsite}>
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-white/70 mb-2">
+                                        URL to monitor
+                                    </label>
+                                    <input
+                                        type="url"
+                                        value={newUrl}
+                                        onChange={(e) => setNewUrl(e.target.value)}
+                                        placeholder="https://example.com"
+                                        className="w-full px-4 py-3 bg-[#0C0C14] border border-[#2D3748] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all"
+                                        required
+                                        autoFocus
+                                    />
+                                    <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
+                                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                        We'll monitor this URL every 3 minutes from Europe
+                                    </div>
+                                </div>
+                                <div className="flex gap-3">
+                                    <Button
+                                        type="button"
+                                        onClick={() => setShowAddModal(false)}
+                                        variant="outline"
+                                        className="flex-1 bg-transparent border-[#2D3748] text-white hover:bg-[#2D3748]"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        disabled={isAdding}
+                                        className="flex-1 bg-[#5850ec] hover:bg-[#4338ca] text-white disabled:opacity-50"
+                                    >
+                                        {isAdding ? 'Adding...' : 'Create monitor'}
+                                    </Button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

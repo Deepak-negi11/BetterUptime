@@ -184,6 +184,8 @@ pub fn get_websites(
                 .ok()
                 .and_then(|vec| vec.into_iter().next());
 
+            let streak = lock.get_current_streak(&w.id).unwrap_or(None);
+
             WebsiteInfo {
                 id: w.id,
                 url: w.url,
@@ -193,6 +195,7 @@ pub fn get_websites(
                 last_check: tick.as_ref().map(|t| t.created_at.to_string()),
                 response_time: tick.as_ref().map(|t| t.response_time),
                 region_id: tick.as_ref().map(|t| t.region_id.clone()),
+                streak,
             }
         })
         .collect();
