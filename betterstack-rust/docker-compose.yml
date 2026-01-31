@@ -65,6 +65,7 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
