@@ -226,11 +226,13 @@ pub async fn test_alert_handler(
         (user_email, website.url.clone())
     }; // Lock is released here
 
-    // Now send email without holding the lock
-    send_email_alert(&user_email, &website_url, "Test Alert From Dashboard").map_err(|e| {
-        eprintln!("🔥 SMTP Error: {:?}", e);
-        poem::Error::from_string(e.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR)
-    })?;
+    // Now send email without holding the lock (async HTTP call)
+    send_email_alert(&user_email, &website_url, "Test Alert From Dashboard")
+        .await
+        .map_err(|e| {
+            eprintln!("🔥 Email Error: {:?}", e);
+            poem::Error::from_string(e.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR)
+        })?;
 
     Ok(Json(serde_json::json!({
         "status": "success",
