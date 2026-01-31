@@ -57,11 +57,10 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
-    ports:
-      - "${API_PORT:-3001}:3001"
+    network_mode: "host"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-deepak}@db:5432/betteruptime
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-deepak}@127.0.0.1:5432/betteruptime
+      REDIS_URL: redis://127.0.0.1:6379
       JWT_SECRET: ${JWT_SECRET:-deepak}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24}
       SMTP_USER: ${SMTP_USER:-}
