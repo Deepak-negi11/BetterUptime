@@ -1,5 +1,6 @@
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
+use std::time::Duration;
 
 pub fn send_email_alert(
     target_email: &str,
@@ -30,6 +31,7 @@ pub fn send_email_alert(
 
     let mailer = SmtpTransport::relay("smtp.gmail.com")?
         .credentials(creds)
+        .timeout(Some(Duration::from_secs(10))) // 10 second timeout
         .build();
 
     mailer.send(&email)?;

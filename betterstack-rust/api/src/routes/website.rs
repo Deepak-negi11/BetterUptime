@@ -211,17 +211,23 @@ pub async fn test_alert_handler(
     UserId(user_id): UserId,
     Data(s): Data<&Arc<Mutex<Store>>>,
 ) -> poem::Result<Json<serde_json::Value>> {
-    let mut lock = s.lock().unwrap_or_else(|e| e.into_inner());
+    // Get data from database, then release lock before SMTP call
+    let (user_email, website_url) = {
+        let mut lock = s.lock().unwrap_or_else(|e| e.into_inner());
 
-    let website = lock
-        .get_website(&id, &user_id)
-        .map_err(|_| poem::Error::from_status(poem::http::StatusCode::NOT_FOUND))?;
+        let website = lock
+            .get_website(&id, &user_id)
+            .map_err(|_| poem::Error::from_status(poem::http::StatusCode::NOT_FOUND))?;
 
-    let user_email = lock
-        .get_user_by_id(&user_id)
-        .map_err(|_| poem::Error::from_status(poem::http::StatusCode::INTERNAL_SERVER_ERROR))?;
+        let user_email = lock
+            .get_user_by_id(&user_id)
+            .map_err(|_| poem::Error::from_status(poem::http::StatusCode::INTERNAL_SERVER_ERROR))?;
 
-    send_email_alert(&user_email, &website.url, "Test Alert From Dashboard").map_err(|e| {
+        (user_email, website.url.clone())
+    }; // Lock is released here
+
+    // Now send email without holding the lock
+    send_email_alert(&user_email, &website_url, "Test Alert From Dashboard").map_err(|e| {
         poem::Error::from_string(e.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR)
     })?;
 
