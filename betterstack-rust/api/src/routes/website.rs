@@ -228,6 +228,7 @@ pub async fn test_alert_handler(
 
     // Now send email without holding the lock
     send_email_alert(&user_email, &website_url, "Test Alert From Dashboard").map_err(|e| {
+        eprintln!("🔥 SMTP Error: {:?}", e);
         poem::Error::from_string(e.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR)
     })?;
 
