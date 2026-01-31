@@ -18,10 +18,13 @@ pub async fn send_email_alert(
     let api_key = std::env::var("RESEND_API_KEY").map_err(|_| "RESEND_API_KEY not set")?;
 
     let from_email =
-        std::env::var("SMTP_USER").unwrap_or_else(|_| "alerts@betteruptime.app".to_string());
+        std::env::var("SMTP_USER").unwrap_or_else(|_| "onboarding@resend.dev".to_string());
+
+    // Use Resend's free testing domain for unverified accounts
+    let sender = "onboarding@resend.dev";
 
     let email = ResendEmail {
-        from: format!("BetterUptime <{}>", from_email),
+        from: format!("BetterUptime <{}>", sender),
         to: vec![target_email.to_string()],
         subject: format!("Alert: {} is {}", url, status.to_uppercase()),
         html: format!(
