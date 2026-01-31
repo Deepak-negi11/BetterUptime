@@ -122,16 +122,14 @@ export default function DashboardPage() {
 
     const getTimeAgo = (dateString: string | null) => {
         if (!dateString) return '';
-        const date = new Date(dateString);
+        const date = new Date(dateString + (dateString.endsWith('Z') ? '' : 'Z'));
         const now = new Date();
         const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-        if (diffInSeconds < 60) return 'less than a minute';
-        const minutes = Math.floor(diffInSeconds / 60);
-        if (minutes < 60) return `${minutes}m`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h`;
-        return `${Math.floor(hours / 24)}d`;
+        if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        return `${Math.floor(diffInSeconds / 86400)} days ago`;
     };
 
     return (
