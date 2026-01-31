@@ -31,11 +31,11 @@ services:
   api:
     build: ./betterstack-rust
     restart: always
-    ports:
-      - "${API_PORT}:3001"
+    network_mode: "host"
     environment:
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@db:5432/betteruptime
-      REDIS_URL: redis://redis:6379
+      # Using 127.0.0.1 because network_mode: host shares localhost with the host machine
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@127.0.0.1:5432/betteruptime
+      REDIS_URL: redis://127.0.0.1:6379
       JWT_SECRET: "deepak"
       JWT_EXPIRATION: 24
       SMTP_USER: ${SMTP_USER}
