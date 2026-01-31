@@ -21,20 +21,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .timeout(Duration::from_secs(10))
         .build()?;
 
-    let redis_client = create_redis_client().await?;
     let store = Arc::new(Mutex::new(Store::new().expect("Failed to connect to DB")));
-    let mut conn = redis_client.get_multiplexed_async_connection().await?;
 
     println!("🚀 Real-Region Worker Started: region={}", region_id);
 
     loop {
-        if let Err(e) =
-            run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await
-        {
-            eprintln!("🔥 Critical Error in {}: {:?}", region_id, e);
-            tokio::time::sleep(Duration::from_secs(5)).await;
+        // Create/recreate Redis connection for each cycle
+        let redis_client = match create_redis_client().await {
+            Ok(client) => client,
+            Err(e) => {
+                eprintln!("🔥 Failed to create Redis client in {}: {:?}", region_id, e);
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+        };
+
+        let mut conn = match redis_client.get_multiplexed_async_connection().await {
+            Ok(c) => {
+                println!("Redis client created");
+                c
+            }
+            Err(e) => {
+                eprintln!("🔥 Failed to connect to Redis in {}: {:?}", region_id, e);
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+        };
+
+        // Run worker cycles until connection breaks
+        loop {
+            match run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await {
+                Ok(_) => {}
+                Err(e) => {
+                    let error_msg = format!("{:?}", e);
+                    if error_msg.contains("broken pipe") || error_msg.contains("connection") {
+                        eprintln!("🔄 Reconnecting to Redis in {}: {:?}", region_id, e);
+                        break; // Break inner loop to reconnect
+                    }
+                    eprintln!("🔥 Critical Error in {}: {:?}", region_id, e);
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
-        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 

@@ -69,6 +69,7 @@ pub async fn x_read_group(
     con: &mut MultiplexedConnection,
     start_id: &str,
 ) -> RedisResult<Vec<WebsiteEvent>> {
+    // eprintln!("DEBUG: ensure_group_exists for {}", consumer_group);
     ensure_group_exists(con, consumer_group).await?;
 
     let mut opts = StreamReadOptions::default()
@@ -76,13 +77,16 @@ pub async fn x_read_group(
         .count(10);
 
     // Only block (Long Poll) if we are looking for NEW messages
+    // REDUCED TO 2000ms to avoid client-side timeouts
     if start_id == ">" {
-        opts = opts.block(5000);
+        opts = opts.block(2000);
     }
 
+    // eprintln!("DEBUG: xread_options start for {}, start_id={}", consumer_group, start_id);
     let reply: StreamReadReply = con
         .xread_options(&[STREAM_NAME], &[start_id], &opts)
         .await?;
+    // eprintln!("DEBUG: xread_options done");
 
     let mut events = Vec::new();
     for stream_key in reply.keys {
@@ -95,7 +99,6 @@ pub async fn x_read_group(
         }
     }
 
-    // eprintln!("DEBUG: x_read_group for {} returned {} events", consumer_group, events.len());
     Ok(events)
 }
 
