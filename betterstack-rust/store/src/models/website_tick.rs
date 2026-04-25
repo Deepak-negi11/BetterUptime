@@ -4,12 +4,14 @@ use uuid::Uuid;
 
 use crate::store::Store;
 
-#[derive(Queryable, Insertable, Selectable)]
+use crate::models::website_status::WebsiteStatus;
+
+#[derive(Queryable, Insertable, Selectable, Debug)]
 #[diesel(table_name = crate::schema::website_tick)]
 pub struct WebsiteTick {
     pub id: String,
     pub response_time: i32,
-    pub status: String,
+    pub status: WebsiteStatus,
     pub region_id: String,
     pub website_id: String,
     pub created_at: NaiveDateTime,
@@ -33,7 +35,7 @@ impl Store {
         website_id: String,
         region_id: String,
         response_time: i32,
-        status: String,
+        status: WebsiteStatus,
     ) -> Result<WebsiteTick, diesel::result::Error> {
         let tick = WebsiteTick {
             id: Uuid::new_v4().to_string(),
@@ -145,7 +147,7 @@ impl Store {
         // 2. Find the most recent tick that has a DIFFERENT status
         let last_change = website_tick
             .filter(website_id.eq(target_website_id))
-            .filter(status.ne(&current_status))
+            .filter(status.ne(current_status))
             .order(created_at.desc())
             .first::<WebsiteTick>(&mut self.conn)
             .optional()?;

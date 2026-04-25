@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
 use store::store::Store;
+use store::models::website_status::WebsiteStatus;
 use url::Url;
 
 #[tokio::main]
@@ -104,7 +105,7 @@ async fn run_worker_cycle(
                 website_id.clone(),
                 region_id.to_string(),
                 *response_time as i32,
-                status.to_string(),
+                status.clone(),
             ) {
                 Ok(_) => println!(
                     "[{}] ✅ Saved tick: {} = {} ({}ms)",
@@ -123,7 +124,7 @@ async fn run_worker_cycle(
     Ok(())
 }
 
-async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (String, String, u64) {
+async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (String, WebsiteStatus, u64) {
     let start = Instant::now();
     let mut full_url = url.trim().to_lowercase();
     if !full_url.starts_with("http://") && !full_url.starts_with("https://") {
@@ -153,7 +154,7 @@ async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (Str
                         status_code.as_u16(),
                         elapsed
                     );
-                    return (website_id.to_string(), "Up".to_string(), elapsed);
+                    return (website_id.to_string(), WebsiteStatus::UP, elapsed);
                 } else {
                     println!(
                         "  📡 {} -> Down (HTTP {}) in {}ms",
@@ -161,7 +162,7 @@ async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (Str
                         status_code.as_u16(),
                         elapsed
                     );
-                    return (website_id.to_string(), "Down".to_string(), elapsed);
+                    return (website_id.to_string(), WebsiteStatus::DOWN, elapsed);
                 }
             }
             Err(e) => {
@@ -182,5 +183,5 @@ async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (Str
         "  📡 {} -> Down (Error after {} retries: {}) in {}ms",
         full_url, max_retries, last_error, elapsed
     );
-    (website_id.to_string(), "Down".to_string(), elapsed)
+    (website_id.to_string(), WebsiteStatus::DOWN, elapsed)
 }
