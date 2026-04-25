@@ -48,6 +48,19 @@ impl Store {
         Ok((user_result.id, user_result.password))
     }
 
+    pub fn get_user_by_email(
+        &mut self,
+        input_email: &str,
+    ) -> Result<String, diesel::result::Error> {
+        use crate::schema::user::dsl::*;
+        let user_result = user
+            .filter(email.eq(input_email))
+            .select(User::as_select())
+            .first(&mut self.conn)?;
+
+        Ok(user_result.id)
+    }
+
     pub fn get_user_by_id(&mut self, user_id: &str) -> Result<String, diesel::result::Error> {
         use crate::schema::user::dsl::*;
         let user_result = user

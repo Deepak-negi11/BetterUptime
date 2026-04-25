@@ -20,6 +20,42 @@ pub struct Claims {
     exp: u64,
 }
 
+pub fn create_jwt(user_id: &str) -> Result<String, Error> {
+    let expiry: u64 = env::var("JWT_EXPIRATION")
+        .unwrap_or_else(|_| "12".to_string())
+        .parse()
+        .unwrap_or(12);
+
+    let expiration = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + (expiry * 60 * 60);
+
+    let claims = Claims {
+        sub: user_id.to_string(),
+        exp: expiration,
+    };
+
+    let jwt_secret = match env::var("JWT_SECRET") {
+        Ok(val) => val,
+        Err(e) => {
+            println!("Failed to load JWT_SECRET: {}", e);
+            return Err(Error::from_status(StatusCode::INTERNAL_SERVER_ERROR));
+        }
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(jwt_secret.as_bytes()),
+    )
+    .map_err(|e| {
+        println!("Token encoding failed: {}", e);
+        Error::from_status(StatusCode::UNAUTHORIZED)
+    })
+}
+
 #[handler]
 pub fn signup(
     Json(data): Json<CreateUserInput>,
@@ -73,40 +109,7 @@ pub fn signin(
 
     let user_id = user_id.ok_or_else(|| Error::from_status(StatusCode::UNAUTHORIZED))?;
 
-    let expiry: u64 = env::var("JWT_EXPIRATION")
-        .unwrap_or_else(|_| "12".to_string())
-        .parse()
-        .unwrap_or(12);
-
-    let expiration = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
-        + (expiry * 60 * 60);
-
-    let claims = Claims {
-        sub: user_id.to_string(),
-        exp: expiration,
-    };
-
-    // Debug: Check if JWT_SECRET loads
-    let jwt_secret = match env::var("JWT_SECRET") {
-        Ok(val) => val,
-        Err(e) => {
-            println!("Failed to load JWT_SECRET: {}", e);
-            return Err(Error::from_status(StatusCode::INTERNAL_SERVER_ERROR));
-        }
-    };
-
-    let token = encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(jwt_secret.as_bytes()),
-    )
-    .map_err(|e| {
-        println!("Token encoding failed: {}", e);
-        Error::from_status(StatusCode::UNAUTHORIZED)
-    })?;
+    let token = create_jwt(&user_id)?;
 
     Ok(Json(SignInOutput { jwt: token }))
 }

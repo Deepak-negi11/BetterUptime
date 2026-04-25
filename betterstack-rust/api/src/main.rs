@@ -9,6 +9,7 @@ pub mod routes;
 use crate::routes::user::{signin, signup};
 use crate::routes::website::{create_website, get_website, get_websites, test_alert_handler};
 pub mod alert;
+use crate::routes::oauth::{github_callback, github_start, google_callback, google_start};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<(), std::io::Error> {
@@ -24,6 +25,10 @@ async fn main() -> Result<(), std::io::Error> {
     let app = Route::new()
         .at("/user/signup", post(signup))
         .at("/user/signin", post(signin))
+        .at("/user/oauth/google", get(google_start))
+        .at("/user/oauth/google/callback", get(google_callback))
+        .at("/user/oauth/github", get(github_start))
+        .at("/user/oauth/github/callback", get(github_callback))
         .at("/website/:website_id", get(get_website))
         .at("/website/:id/alert-test", post(test_alert_handler))
         .at("/website", post(create_website))
