@@ -10,6 +10,7 @@ pub struct Website {
     pub url: String,
     pub time_added: chrono::NaiveDateTime,
     pub user_id: String,
+    pub is_paused: bool,
 }
 
 impl Store {
@@ -24,6 +25,7 @@ impl Store {
             url,
             time_added: Utc::now().naive_utc(),
             user_id,
+            is_paused: false,
         };
 
         diesel::insert_into(crate::schema::website::table)
