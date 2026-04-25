@@ -3,9 +3,9 @@ use reqwest::Client as HttpClient;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use store::models::website_status::WebsiteStatus;
 use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
 use store::store::Store;
-use store::models::website_status::WebsiteStatus;
 use url::Url;
 
 #[tokio::main]
@@ -124,7 +124,11 @@ async fn run_worker_cycle(
     Ok(())
 }
 
-async fn fetch_website(client: &HttpClient, url: &str, website_id: &str) -> (String, WebsiteStatus, u64) {
+async fn fetch_website(
+    client: &HttpClient,
+    url: &str,
+    website_id: &str,
+) -> (String, WebsiteStatus, u64) {
     let start = Instant::now();
     let mut full_url = url.trim().to_lowercase();
     if !full_url.starts_with("http://") && !full_url.starts_with("https://") {

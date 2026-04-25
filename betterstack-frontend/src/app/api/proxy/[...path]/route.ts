@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://142.93.222.85:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://146.190.33.150:3001';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     const { path } = await params;

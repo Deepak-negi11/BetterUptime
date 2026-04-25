@@ -37,6 +37,16 @@ impl Store {
         response_time: i32,
         status: WebsiteStatus,
     ) -> Result<WebsiteTick, diesel::result::Error> {
+        {
+            use crate::schema::region::dsl as regions;
+
+            diesel::insert_into(regions::region)
+                .values((regions::id.eq(&region_id), regions::name.eq(&region_id)))
+                .on_conflict(regions::id)
+                .do_nothing()
+                .execute(&mut self.conn)?;
+        }
+
         let tick = WebsiteTick {
             id: Uuid::new_v4().to_string(),
             response_time,
@@ -72,6 +82,20 @@ impl Store {
             .order(created_at.desc())
             .limit(limit)
             .load::<WebsiteTick>(&mut self.conn)
+    }
+
+    pub fn get_website_regions(
+        &mut self,
+        target_website_id: &str,
+    ) -> Result<Vec<String>, diesel::result::Error> {
+        use crate::schema::website_tick::dsl::*;
+
+        website_tick
+            .filter(website_id.eq(target_website_id))
+            .select(region_id)
+            .distinct()
+            .order(region_id.asc())
+            .load::<String>(&mut self.conn)
     }
 
     pub fn get_analytics_graph(

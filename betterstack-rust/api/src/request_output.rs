@@ -42,6 +42,7 @@ pub struct GetWebsiteOutput {
     pub url: String,
     pub id: String,
     pub user_id: String,
+    pub regions: Vec<String>,
     pub recent_ticks: Vec<TickInfo>,
     pub stats: WebsiteStats,
     pub graph_data: Vec<WebsiteBucket>,

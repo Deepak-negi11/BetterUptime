@@ -1,10 +1,20 @@
 use diesel::deserialize::{self, FromSql};
 use diesel::pg::Pg;
-use diesel::serialize::{self, ToSql, Output};
+use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 use std::io::Write;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, diesel::AsExpression, diesel::FromSqlRow, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    diesel::AsExpression,
+    diesel::FromSqlRow,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 #[diesel(sql_type = crate::schema::sql_types::WebsiteStatus)]
 pub enum WebsiteStatus {
     UP,

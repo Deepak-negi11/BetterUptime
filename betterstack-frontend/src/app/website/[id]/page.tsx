@@ -44,11 +44,28 @@ interface WebsiteDetails {
     id: string;
     url: string;
     user_id: string;
+    regions: string[];
     recent_ticks: TickInfo[];
     stats: WebsiteStats;
     graph_data: WebsiteBucket[];
     streak?: number;
     created_at: string;
+}
+
+const REGION_LABELS: Record<string, string> = {
+    'blr': 'Bangalore',
+    'banglore-1': 'Bangalore',
+    'bangalore-1': 'Bangalore',
+    'india-mumbai': 'India',
+    'india-1': 'India',
+    'sf': 'San Francisco',
+    'sfo': 'San Francisco',
+    'san-francisco': 'San Francisco',
+    'us-west-1': 'San Francisco',
+};
+
+function labelRegion(regionId: string) {
+    return REGION_LABELS[regionId] || regionId;
 }
 
 export default function WebsiteDetailPage() {
@@ -65,9 +82,10 @@ export default function WebsiteDetailPage() {
 
     const regions = [
         { id: '', name: 'Global' },
-        { id: 'india-1', name: 'India' },
-        { id: 'us-east-1', name: 'USA' },
-        { id: 'asia-1', name: 'Asia' },
+        ...(website?.regions ?? []).map((regionId) => ({
+            id: regionId,
+            name: labelRegion(regionId),
+        })),
     ];
 
     const rangeToDays: Record<string, number> = {
@@ -108,7 +126,8 @@ export default function WebsiteDetailPage() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             console.log("Full Backend Response:", response.data);
-            setWebsite(response.data);
+            const websiteDetails = response.data as WebsiteDetails;
+            setWebsite(websiteDetails);
         } catch (err) {
             console.error('Failed to fetch website details:', err);
             setError('Failed to load website details');

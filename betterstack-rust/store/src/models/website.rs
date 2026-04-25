@@ -1,7 +1,7 @@
+use crate::store::Store;
 use chrono::Utc;
 use diesel::prelude::*;
 use uuid::Uuid;
-use crate::store::Store;
 
 #[derive(Queryable, Insertable, Selectable)]
 #[diesel(table_name = crate::schema::website)]
@@ -14,7 +14,6 @@ pub struct Website {
 }
 
 impl Store {
-  
     pub fn create_website(
         &mut self,
         user_id: String,
@@ -34,7 +33,6 @@ impl Store {
             .get_result(&mut self.conn)
     }
 
-   
     pub fn delete_website(
         &mut self,
         target_id: &str,
@@ -50,7 +48,6 @@ impl Store {
         .execute(&mut self.conn)
     }
 
-   
     pub fn get_website(
         &mut self,
         target_id: &str,
@@ -65,8 +62,10 @@ impl Store {
             .first(&mut self.conn)
     }
 
-   
-    pub fn get_user_websites(&mut self, owner_id: &str) -> Result<Vec<Website>, diesel::result::Error> {
+    pub fn get_user_websites(
+        &mut self,
+        owner_id: &str,
+    ) -> Result<Vec<Website>, diesel::result::Error> {
         use crate::schema::website::dsl::*;
 
         website
@@ -75,12 +74,9 @@ impl Store {
             .load(&mut self.conn)
     }
 
-
     pub fn get_all_websites_global(&mut self) -> Result<Vec<Website>, diesel::result::Error> {
         use crate::schema::website::dsl::*;
 
-        website
-            .select(Website::as_select())
-            .load(&mut self.conn)
+        website.select(Website::as_select()).load(&mut self.conn)
     }
 }

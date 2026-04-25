@@ -107,6 +107,7 @@ pub fn get_website(
     };
 
     let ticks = lock.get_ticks(&id, region, 50).unwrap_or_default();
+    let regions = lock.get_website_regions(&id).unwrap_or_default();
 
     let recent_ticks = ticks
         .into_iter()
@@ -134,6 +135,7 @@ pub fn get_website(
         url: website.url,
         id: website.id,
         user_id: website.user_id,
+        regions,
         recent_ticks,
         stats: crate::request_output::WebsiteStats {
             uptime_24h,
