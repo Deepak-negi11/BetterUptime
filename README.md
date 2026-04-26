@@ -2,6 +2,10 @@
 
 A high-performance, distributed uptime monitoring system built with Rust (Backend) and Next.js (Frontend). This system supports monitoring websites from multiple geographic regions simultaneously.
 
+![System Dashboard](./image.png)
+
+![Regional Monitoring](./image-1.png)
+
 ## 🚀 Architecture
 
 The system consists of three main components:
@@ -18,6 +22,7 @@ The system consists of three main components:
     *   Save results directly to the Central PostgreSQL database.
 3.  **Frontend (Next.js)**:
     *   A premium, dark-mode dashboard for managing websites and viewing uptime analytics/graphs.
+
 
 ---
 
