@@ -14,6 +14,12 @@ pub struct SignInOutput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
+pub struct UserProfileOutput {
+    pub email: String,
+    pub username: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TickInfo {
     pub status: String,
     pub response_time: i32,

@@ -1,57 +1,48 @@
-use serde::Serialize;
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport};
 
-#[derive(Serialize)]
-struct ResendEmail {
-    from: String,
-    to: Vec<String>,
-    subject: String,
-    html: String,
-}
-
-/// Send email alert using Resend HTTP API
-/// Requires RESEND_API_KEY environment variable
 pub async fn send_email_alert(
     target_email: &str,
     url: &str,
     status: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let api_key = std::env::var("RESEND_API_KEY").map_err(|_| "RESEND_API_KEY not set")?;
+    let smtp_user = std::env::var("SMTP_USER").map_err(|_| "SMTP_USER env var not set")?;
+    let smtp_password = std::env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD env var not set")?;
+    let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| {
+        if smtp_user.to_ascii_lowercase().ends_with("@gmail.com") {
+            "smtp.gmail.com".to_string()
+        } else {
+            "smtp-relay.brevo.com".to_string()
+        }
+    });
+    let smtp_port = std::env::var("SMTP_PORT")
+        .unwrap_or_else(|_| "587".to_string())
+        .parse::<u16>()?;
 
-    let from_email =
-        std::env::var("SMTP_USER").unwrap_or_else(|_| "onboarding@resend.dev".to_string());
-
-    // Use Resend's free testing domain for unverified accounts
-    let sender = "onboarding@resend.dev";
-
-    let email = ResendEmail {
-        from: format!("BetterUptime <{}>", sender),
-        to: vec![target_email.to_string()],
-        subject: format!("Alert: {} is {}", url, status.to_uppercase()),
-        html: format!(
-            "<h2>Website Status Alert</h2>\
-            <p>Your website <strong>{}</strong> was detected as <strong>{}</strong> at {}.</p>\
-            <p>Please check the dashboard for details.</p>",
+    let email = Message::builder()
+        .from(smtp_user.parse()?)
+        .to(target_email.parse()?)
+        .subject(format!("Alert: {} is {}", url, status))
+        .body(format!(
+            "Your website {} status changed to {}.\nDetected at: {} UTC.",
             url,
             status,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        ),
-    };
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+        ))?;
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post("https://api.resend.com/emails")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&email)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        println!("✅ Email sent successfully to {}", target_email);
-        Ok(())
+    let smtp_password = if smtp_user.to_ascii_lowercase().ends_with("@gmail.com") {
+        smtp_password.split_whitespace().collect()
     } else {
-        let error_text = response.text().await.unwrap_or_default();
-        eprintln!("❌ Resend API error: {}", error_text);
-        Err(format!("Resend API error: {}", error_text).into())
-    }
+        smtp_password
+    };
+    let creds = Credentials::new(smtp_user, smtp_password);
+
+    let mailer = SmtpTransport::starttls_relay(&smtp_host)?
+        .port(smtp_port)
+        .credentials(creds)
+        .build();
+
+    tokio::task::spawn_blocking(move || mailer.send(&email)).await??;
+
+    Ok(())
 }

@@ -1,5 +1,6 @@
 use crate::request_input::{CreateUserInput, SignInInput};
-use crate::request_output::{CreateUserOutput, SignInOutput};
+use crate::request_output::{CreateUserOutput, SignInOutput, UserProfileOutput};
+use crate::routes::authmiddleware::UserId;
 use crate::routes::hashing::{hash_password, verify_password};
 use std::env;
 use std::sync::{Arc, Mutex};
@@ -20,17 +21,21 @@ pub struct Claims {
     exp: u64,
 }
 
-pub fn create_jwt(user_id: &str) -> Result<String, Error> {
-    let expiry: u64 = env::var("JWT_EXPIRATION")
+const REMEMBERED_SESSION_HOURS: u64 = 24 * 30;
+
+fn configured_expiry_hours() -> u64 {
+    env::var("JWT_EXPIRATION")
         .unwrap_or_else(|_| "12".to_string())
         .parse()
-        .unwrap_or(12);
+        .unwrap_or(12)
+}
 
+fn create_jwt_with_expiry(user_id: &str, expiry_hours: u64) -> Result<String, Error> {
     let expiration = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
-        + (expiry * 60 * 60);
+        + (expiry_hours * 60 * 60);
 
     let claims = Claims {
         sub: user_id.to_string(),
@@ -54,6 +59,14 @@ pub fn create_jwt(user_id: &str) -> Result<String, Error> {
         println!("Token encoding failed: {}", e);
         Error::from_status(StatusCode::UNAUTHORIZED)
     })
+}
+
+pub fn create_jwt(user_id: &str) -> Result<String, Error> {
+    create_jwt_with_expiry(user_id, configured_expiry_hours())
+}
+
+pub fn create_remembered_jwt(user_id: &str) -> Result<String, Error> {
+    create_jwt_with_expiry(user_id, REMEMBERED_SESSION_HOURS)
 }
 
 #[handler]
@@ -109,7 +122,26 @@ pub fn signin(
 
     let user_id = user_id.ok_or_else(|| Error::from_status(StatusCode::UNAUTHORIZED))?;
 
-    let token = create_jwt(&user_id)?;
+    let token = if data.remember_me.unwrap_or(true) {
+        create_remembered_jwt(&user_id)?
+    } else {
+        create_jwt(&user_id)?
+    };
 
     Ok(Json(SignInOutput { jwt: token }))
+}
+
+#[handler]
+pub fn profile(
+    Data(s): Data<&Arc<Mutex<Store>>>,
+    UserId(user_id): UserId,
+) -> Result<Json<UserProfileOutput>, Error> {
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let (username, email) = locked_s
+        .get_user_info(&user_id)
+        .map_err(|_| Error::from_status(StatusCode::NOT_FOUND))?;
+
+    Ok(Json(UserProfileOutput { email, username }))
 }

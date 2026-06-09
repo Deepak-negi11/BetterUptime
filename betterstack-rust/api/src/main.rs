@@ -6,7 +6,7 @@ pub mod request_input;
 pub mod request_output;
 use store::store::Store;
 pub mod routes;
-use crate::routes::user::{signin, signup};
+use crate::routes::user::{profile, signin, signup};
 use crate::routes::website::{create_website, get_website, get_websites, test_alert_handler};
 pub mod alert;
 use crate::routes::oauth::{github_callback, github_start, google_callback, google_start};
@@ -25,6 +25,7 @@ async fn main() -> Result<(), std::io::Error> {
     let app = Route::new()
         .at("/user/signup", post(signup))
         .at("/user/signin", post(signin))
+        .at("/user/me", get(profile))
         .at("/user/oauth/google", get(google_start))
         .at("/user/oauth/google/callback", get(google_callback))
         .at("/user/oauth/github", get(github_start))

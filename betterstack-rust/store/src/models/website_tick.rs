@@ -151,12 +151,17 @@ impl Store {
     pub fn get_current_streak(
         &mut self,
         target_website_id: &str,
+        target_region_id: Option<&str>,
     ) -> Result<Option<i64>, diesel::result::Error> {
         use crate::schema::website_tick::dsl::*;
 
-        // 1. Get the latest tick to determine current status
-        let latest_tick = website_tick
+        let mut latest_query = website_tick
             .filter(website_id.eq(target_website_id))
+            .into_boxed();
+        if let Some(target_region) = target_region_id {
+            latest_query = latest_query.filter(region_id.eq(target_region));
+        }
+        let latest_tick = latest_query
             .order(created_at.desc())
             .first::<WebsiteTick>(&mut self.conn)
             .optional()?;
@@ -168,10 +173,14 @@ impl Store {
 
         let current_status = latest.status;
 
-        // 2. Find the most recent tick that has a DIFFERENT status
-        let last_change = website_tick
+        let mut last_change_query = website_tick
             .filter(website_id.eq(target_website_id))
             .filter(status.ne(current_status))
+            .into_boxed();
+        if let Some(target_region) = target_region_id {
+            last_change_query = last_change_query.filter(region_id.eq(target_region));
+        }
+        let last_change = last_change_query
             .order(created_at.desc())
             .first::<WebsiteTick>(&mut self.conn)
             .optional()?;
@@ -179,9 +188,13 @@ impl Store {
         let streak_start = match last_change {
             Some(tick) => tick.created_at,
             None => {
-                // If never changed, start from the very first tick
-                website_tick
+                let mut first_tick_query = website_tick
                     .filter(website_id.eq(target_website_id))
+                    .into_boxed();
+                if let Some(target_region) = target_region_id {
+                    first_tick_query = first_tick_query.filter(region_id.eq(target_region));
+                }
+                first_tick_query
                     .order(created_at.asc())
                     .first::<WebsiteTick>(&mut self.conn)?
                     .created_at

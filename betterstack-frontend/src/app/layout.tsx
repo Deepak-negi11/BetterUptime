@@ -1,15 +1,17 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { Toaster } from "@/components/ui/sonner"
 
 const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'UpSignal - Know Before They Do',
-  description: 'Self-hosted, multi-region uptime monitoring for websites and APIs.',
+  title: 'BetterUptime - Uptime Monitoring Made Simple',
+  description: 'Monitor your websites, APIs, and services 24/7. Get instant alerts, beautiful status pages, and 30-second checks from 190+ locations worldwide.',
+  generator: 'v0.app',
   icons: {
     icon: [
       {
@@ -36,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${_geist.className} antialiased`} suppressHydrationWarning={true} >
+      <body className={`font-sans antialiased`} suppressHydrationWarning={true} >
         {children}
         <Toaster />
         <Analytics />
@@ -44,3 +46,4 @@ export default function RootLayout({
     </html>
   )
 }
+

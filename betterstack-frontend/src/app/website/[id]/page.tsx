@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from "sonner";
 import { useParams, useRouter } from 'next/navigation';
-import { Header } from '@/components/header';
+import { DashboardSidebar } from '@/components/dashboard-sidebar';
 import { BACKEND_URL } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import {
@@ -40,6 +40,17 @@ interface WebsiteBucket {
     down_count: number;
 }
 
+interface ComparisonLine {
+    region: string;
+    dataKey: string;
+    color: string;
+}
+
+interface ComparisonPoint {
+    time: number;
+    [dataKey: string]: number | string;
+}
+
 interface WebsiteDetails {
     id: string;
     url: string;
@@ -52,20 +63,37 @@ interface WebsiteDetails {
     created_at: string;
 }
 
+const COMPARE_REGIONS = '__compare_regions__';
+const FALLBACK_REGION_COLORS = ['#6871E1', '#22D3EE', '#F472B6', '#34D399'];
+
 const REGION_LABELS: Record<string, string> = {
-    'blr': 'Bangalore',
-    'banglore-1': 'Bangalore',
-    'bangalore-1': 'Bangalore',
+    'blr': 'BLR',
+    'worker-blr': 'BLR',
+    'banglore-1': 'BLR',
+    'bangalore-1': 'BLR',
     'india-mumbai': 'India',
     'india-1': 'India',
-    'sf': 'San Francisco',
-    'sfo': 'San Francisco',
-    'san-francisco': 'San Francisco',
-    'us-west-1': 'San Francisco',
+    'sf': 'SF',
+    'sfo': 'SF',
+    'worker-sf': 'SF',
+    'worker-sfo': 'SF',
+    'san-francisco': 'SF',
+    'us-west-1': 'SF',
 };
 
 function labelRegion(regionId: string) {
     return REGION_LABELS[regionId] || regionId;
+}
+
+function regionColor(regionId: string, index: number) {
+    const normalized = regionId.toLowerCase();
+    if (normalized.includes('sfo') || normalized.includes('sf') || normalized.includes('san-francisco')) {
+        return '#E8AB3A';
+    }
+    if (normalized.includes('blr') || normalized.includes('bangalore') || normalized.includes('banglore')) {
+        return '#8CC4F1';
+    }
+    return FALLBACK_REGION_COLORS[index % FALLBACK_REGION_COLORS.length];
 }
 
 export default function WebsiteDetailPage() {
@@ -79,14 +107,15 @@ export default function WebsiteDetailPage() {
     const [selectedRegion, setSelectedRegion] = useState('');
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [comparisonData, setComparisonData] = useState<ComparisonPoint[]>([]);
+    const [comparisonLines, setComparisonLines] = useState<ComparisonLine[]>([]);
+    const [comparisonSummaryRegion, setComparisonSummaryRegion] = useState('');
 
-    const regions = [
-        { id: '', name: 'Global' },
-        ...(website?.regions ?? []).map((regionId) => ({
+    const regions = (website?.regions ?? []).map((regionId) => ({
             id: regionId,
             name: labelRegion(regionId),
-        })),
-    ];
+        }));
 
     const rangeToDays: Record<string, number> = {
         'Day': 1,
@@ -97,7 +126,7 @@ export default function WebsiteDetailPage() {
     useEffect(() => {
         if (id) {
             fetchWebsiteDetails();
-            const interval = setInterval(() => fetchWebsiteDetails(), 60000);
+            const interval = setInterval(() => fetchWebsiteDetails(), 10000);
             return () => clearInterval(interval);
         }
     }, [id, timeRange, selectedRegion, startDate, endDate]);
@@ -110,24 +139,60 @@ export default function WebsiteDetailPage() {
         }
 
         try {
-            const params = new URLSearchParams();
-            if (startDate && endDate) {
-                params.append('start', new Date(startDate).toISOString());
-                params.append('end', new Date(endDate).toISOString());
+            const createParams = (region?: string) => {
+                const params = new URLSearchParams();
+                if (startDate && endDate) {
+                    params.append('start', new Date(startDate).toISOString());
+                    params.append('end', new Date(endDate).toISOString());
+                } else {
+                    params.append('days', rangeToDays[timeRange].toString());
+                }
+                if (region) params.append('region', region);
+                return params;
+            };
+
+            if (selectedRegion === COMPARE_REGIONS && website && website.regions.length > 1) {
+                const responses = await Promise.all(
+                    website.regions.map((region) =>
+                        axios.get<WebsiteDetails>(`${BACKEND_URL}/website/${id}?${createParams(region).toString()}`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        })
+                    )
+                );
+
+                const lines = website.regions.map((region, index) => ({
+                    region,
+                    dataKey: `region_${index}`,
+                    color: regionColor(region, index),
+                }));
+                const mergedPoints = new Map<number, ComparisonPoint>();
+
+                responses.forEach((response, regionIndex) => {
+                    response.data.graph_data.forEach((bucket) => {
+                        const time = new Date(bucket.bucket + 'Z').getTime();
+                        const point = mergedPoints.get(time) || { time };
+                        point[lines[regionIndex].dataKey] = bucket.down_count > 0 ? 0 : bucket.avg_response_time;
+                        mergedPoints.set(time, point);
+                    });
+                });
+
+                setWebsite(responses[0].data);
+                setComparisonSummaryRegion(website.regions[0]);
+                setComparisonLines(lines);
+                setComparisonData(Array.from(mergedPoints.values()).sort((a, b) => a.time - b.time));
             } else {
-                params.append('days', rangeToDays[timeRange].toString());
+                const response = await axios.get(`${BACKEND_URL}/website/${id}?${createParams(selectedRegion || undefined).toString()}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const websiteDetails = response.data as WebsiteDetails;
+                setWebsite(websiteDetails);
+                setComparisonSummaryRegion('');
+                setComparisonLines([]);
+                setComparisonData([]);
+                if (!selectedRegion && websiteDetails.regions.length > 0) {
+                    setSelectedRegion(websiteDetails.regions[0]);
+                }
             }
-
-            if (selectedRegion) {
-                params.append('region', selectedRegion);
-            }
-
-            const response = await axios.get(`${BACKEND_URL}/website/${id}?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            console.log("Full Backend Response:", response.data);
-            const websiteDetails = response.data as WebsiteDetails;
-            setWebsite(websiteDetails);
         } catch (err) {
             console.error('Failed to fetch website details:', err);
             setError('Failed to load website details');
@@ -138,17 +203,31 @@ export default function WebsiteDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#0C0C14] flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#5850ec]"></div>
+            <div className="min-h-screen bg-[#0B0D15]">
+                <DashboardSidebar
+                    mobileOpen={mobileSidebarOpen}
+                    onMobileOpen={() => setMobileSidebarOpen(true)}
+                    onMobileClose={() => setMobileSidebarOpen(false)}
+                />
+                <div className="flex min-h-screen items-center justify-center lg:ml-[272px]">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6871E1]"></div>
+                </div>
             </div>
         );
     }
 
     if (error || !website) {
         return (
-            <div className="min-h-screen bg-[#0C0C14] flex items-center justify-center flex-col gap-4">
-                <p className="text-red-400">{error || 'Website not found'}</p>
-                <Button onClick={() => router.push('/dashboard')} variant="outline">Back to Dashboard</Button>
+            <div className="min-h-screen bg-[#0B0D15]">
+                <DashboardSidebar
+                    mobileOpen={mobileSidebarOpen}
+                    onMobileOpen={() => setMobileSidebarOpen(true)}
+                    onMobileClose={() => setMobileSidebarOpen(false)}
+                />
+                <div className="flex min-h-screen flex-col items-center justify-center gap-4 lg:ml-[272px]">
+                    <p className="text-red-400">{error || 'Website not found'}</p>
+                    <Button onClick={() => router.push('/dashboard')} variant="outline">Back to Dashboard</Button>
+                </div>
             </div>
         );
     }
@@ -189,7 +268,7 @@ export default function WebsiteDetailPage() {
     const currentStatus = !latestTick ? 'Checking' : latestTick.status === 'up' ? 'Up' : 'Down';
 
 
-    const chartData = (website?.graph_data || []).map((bucket) => {
+    const singleRegionChartData = (website?.graph_data || []).map((bucket) => {
         const date = new Date(bucket.bucket + "Z");
 
         return {
@@ -198,6 +277,7 @@ export default function WebsiteDetailPage() {
             status: bucket.down_count > 0 ? 'down' : 'up',
         };
     });
+    const chartData = selectedRegion === COMPARE_REGIONS ? comparisonData : singleRegionChartData;
 
 
 
@@ -225,17 +305,22 @@ export default function WebsiteDetailPage() {
             if (response.data.status === 'success') {
                 alert('Test alert sent successfully!');
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to send test alert:', err);
-            toast.error('Failed to send test alert');
+            toast.error(err.response?.data?.message || 'Failed to send test alert');
         }
     };
 
     return (
-        <div className="min-h-screen bg-[#0B0C15] text-white font-sans">
-            <Header isLoggedIn={true} />
+        <div className="min-h-screen bg-[#0B0D15] text-white font-sans">
+            <DashboardSidebar
+                mobileOpen={mobileSidebarOpen}
+                onMobileOpen={() => setMobileSidebarOpen(true)}
+                onMobileClose={() => setMobileSidebarOpen(false)}
+            />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+            <main className="px-4 pb-8 pt-20 sm:px-6 lg:ml-[272px] lg:px-8 lg:pt-8">
+                <div className="mx-auto max-w-7xl">
                 <Button
                     variant="ghost"
                     className="mb-4 pl-0 hover:bg-transparent text-white/40 hover:text-white text-sm h-auto py-0"
@@ -262,7 +347,7 @@ export default function WebsiteDetailPage() {
                     </div>
 
                     <div className="flex items-center gap-4 text-sm text-white/60">
-                        <button onClick={handleSendTestAlert} className="flex items-center gap-2 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded p-1" aria-label="Send test alert">
+                        <button onClick={handleSendTestAlert} className="flex items-center gap-2 rounded-lg bg-[#6871E1] px-3 py-2 text-white transition-colors hover:bg-[#5861cf] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6871E1]" aria-label="Send test alert">
                             <Send className="w-4 h-4" />
                             Send test alert
                         </button>
@@ -317,7 +402,16 @@ export default function WebsiteDetailPage() {
                 {/* Response Time Graph */}
                 <div className="bg-[#13141F] border border-[#1E293B] rounded-lg p-6 mb-8">
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-white/60 font-medium">Response times</h2>
+                        <div>
+                            <h2 className="text-white/60 font-medium">Response times</h2>
+                            <p className="mt-1 text-xs text-white/30">
+                                {selectedRegion === COMPARE_REGIONS
+                                    ? `Comparing ${comparisonLines.map((line) => labelRegion(line.region)).join(' and ')}. Summary cards use ${labelRegion(comparisonSummaryRegion)}.`
+                                    : selectedRegion
+                                        ? `Showing real checks from ${labelRegion(selectedRegion)}`
+                                        : 'Waiting for worker data'}
+                            </p>
+                        </div>
                     </div>
 
                     <div className="flex items-center justify-between mb-6">
@@ -325,8 +419,11 @@ export default function WebsiteDetailPage() {
                             <select
                                 value={selectedRegion}
                                 onChange={(e) => setSelectedRegion(e.target.value)}
+                                disabled={regions.length === 0}
                                 className="appearance-none bg-[#13141F] border border-[#2D3748] text-white hover:bg-[#2D3748] rounded px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                             >
+                                {regions.length === 0 && <option value="">No worker data yet</option>}
+                                {regions.length > 1 && <option value={COMPARE_REGIONS}>Compare</option>}
                                 {regions.map(r => (
                                     <option key={r.id} value={r.id}>{r.name}</option>
                                 ))}
@@ -392,6 +489,13 @@ export default function WebsiteDetailPage() {
                                         name: any,
                                         item: any
                                     ) => {
+                                        if (selectedRegion === COMPARE_REGIONS) {
+                                            const line = comparisonLines.find((entry) => entry.dataKey === name);
+                                            return [
+                                                typeof value === 'number' ? `${Math.round(value)}ms` : '--',
+                                                line ? labelRegion(line.region) : name,
+                                            ];
+                                        }
                                         if (item && item.payload && item.payload.status === 'down') {
                                             return ['Down', 'Response Time'];
                                         }
@@ -401,17 +505,43 @@ export default function WebsiteDetailPage() {
                                         ];
                                     }}
                                 />
-                                <Line
-                                    type="monotone"
-                                    dataKey="response_time"
-                                    stroke="#5850ec"
-                                    strokeWidth={2}
-                                    dot={false}
-                                    activeDot={{ r: 4, fill: '#5850ec', stroke: '#fff', strokeWidth: 2 }}
-                                />
+                                {selectedRegion === COMPARE_REGIONS ? (
+                                    comparisonLines.map((line) => (
+                                        <Line
+                                            key={line.region}
+                                            type="monotone"
+                                            dataKey={line.dataKey}
+                                            name={line.dataKey}
+                                            stroke={line.color}
+                                            strokeWidth={2}
+                                            dot={false}
+                                            connectNulls
+                                            activeDot={{ r: 4, fill: line.color, stroke: '#fff', strokeWidth: 2 }}
+                                        />
+                                    ))
+                                ) : (
+                                    <Line
+                                        type="monotone"
+                                        dataKey="response_time"
+                                        stroke="#6871E1"
+                                        strokeWidth={2}
+                                        dot={false}
+                                        activeDot={{ r: 4, fill: '#6871E1', stroke: '#fff', strokeWidth: 2 }}
+                                    />
+                                )}
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
+                    {selectedRegion === COMPARE_REGIONS && (
+                        <div className="mt-4 flex flex-wrap gap-4 border-t border-white/[0.06] pt-4">
+                            {comparisonLines.map((line) => (
+                                <div key={line.region} className="flex items-center gap-2 text-xs text-white/50">
+                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: line.color }} />
+                                    {labelRegion(line.region)}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Availability Table */}
@@ -514,6 +644,7 @@ export default function WebsiteDetailPage() {
                             <MoreHorizontal className="w-5 h-5" />
                         </Button>
                     </div>
+                </div>
                 </div>
             </main >
         </div >

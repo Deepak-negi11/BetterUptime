@@ -6,17 +6,25 @@ import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { getValidStoredToken } from '@/lib/auth';
 
 export default function SignInPage() {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         username: '',
         password: '',
     });
+
+    useEffect(() => {
+        if (getValidStoredToken()) {
+            router.replace('/dashboard');
+        }
+    }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,7 +34,8 @@ export default function SignInPage() {
         try {
             const response = await axios.post(`${BACKEND_URL}/user/signin`, {
                 username: formData.username,
-                password: formData.password
+                password: formData.password,
+                remember_me: rememberMe
             });
 
             localStorage.setItem('token', response.data.jwt);
@@ -129,6 +138,8 @@ export default function SignInPage() {
                                 <input
                                     type="checkbox"
                                     id="remember"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
                                     className="w-4 h-4 rounded border-[#1E293B] bg-[#0C0C14] text-[#5850ec] focus:ring-[#5850ec] focus:ring-offset-0"
                                 />
                                 <label htmlFor="remember" className="ml-2 text-sm text-white/50">

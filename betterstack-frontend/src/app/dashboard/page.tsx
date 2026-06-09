@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Header } from '@/components/header';
+import { DashboardSidebar } from '@/components/dashboard-sidebar';
 import { BACKEND_URL } from '@/lib/utils';
 import axios from 'axios';
 import {
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { getValidStoredToken } from '@/lib/auth';
 
 interface Website {
     id: string;
@@ -36,11 +37,14 @@ export default function DashboardPage() {
     const [isAdding, setIsAdding] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     const hasActiveIncident = (w: Website) => w.status === 'down';
 
     useEffect(() => {
         fetchWebsites();
+        const interval = setInterval(() => fetchWebsites(), 10000); // refresh every 10 seconds
+        return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
@@ -54,7 +58,7 @@ export default function DashboardPage() {
     }, [searchQuery, websites]);
 
     const fetchWebsites = async () => {
-        const token = localStorage.getItem('token');
+        const token = getValidStoredToken();
         if (!token) {
             router.push('/user/signin');
             return;
@@ -123,13 +127,21 @@ export default function DashboardPage() {
 
 
     return (
-        <div className="min-h-screen bg-[#0B0C15] text-white font-sans">
-            <Header isLoggedIn={true} />
+        <div className="min-h-screen bg-[#0B0D15] text-white font-sans">
+            <DashboardSidebar
+                mobileOpen={mobileSidebarOpen}
+                onMobileOpen={() => setMobileSidebarOpen(true)}
+                onMobileClose={() => setMobileSidebarOpen(false)}
+            />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+            <main className="px-4 pb-8 pt-20 sm:px-6 lg:ml-[272px] lg:px-8 lg:pt-8">
+                <div className="mx-auto max-w-7xl">
                 {/* Header Actions */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <h1 className="text-3xl font-bold">Monitors</h1>
+                    <div>
+                        <p className="mb-1 text-xs font-medium uppercase tracking-[0.16em] text-[#8d82f2]">Workspace</p>
+                        <h1 className="text-3xl font-bold">Monitors</h1>
+                    </div>
 
                     <div className="flex items-center gap-4 flex-1 md:justify-end">
                         <div className="relative w-full md:w-80">
@@ -140,7 +152,7 @@ export default function DashboardPage() {
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)
                                 }
-                                className="w-full bg-[#13141F] border border-[#2D3748] rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#5850ec] transition-colors"
+                            className="w-full bg-[#13141F] border border-[#2D3748] rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#6871E1] transition-colors"
                             />
                             <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-[#2D3748] text-[10px] text-white/40">
                                 /
@@ -149,7 +161,7 @@ export default function DashboardPage() {
 
                         <Button
                             onClick={() => setShowAddModal(true)}
-                            className="bg-[#5850ec] hover:bg-[#4338ca] text-white font-medium px-4"
+                            className="bg-[#6871E1] hover:bg-[#5861cf] text-white font-medium px-4"
                         >
                             Create monitor
                             <ChevronDown className="w-4 h-4 ml-2 border-l border-white/20 pl-2" />
@@ -165,7 +177,7 @@ export default function DashboardPage() {
 
                     {isLoading ? (
                         <div className="p-8 flex justify-center">
-                            <div className="w-6 h-6 border-2 border-[#5850ec] border-t-transparent rounded-full animate-spin" />
+                            <div className="w-6 h-6 border-2 border-[#6871E1] border-t-transparent rounded-full animate-spin" />
                         </div>
                     ) : filteredWebsites.length === 0 ? (
                         <div className="p-12 text-center text-white/40">
@@ -237,6 +249,7 @@ export default function DashboardPage() {
                     )}
 
                 </div>
+                </div>
             </main >
 
 
@@ -271,7 +284,7 @@ export default function DashboardPage() {
                                         value={newUrl}
                                         onChange={(e) => setNewUrl(e.target.value)}
                                         placeholder="https://example.com"
-                                        className="w-full px-4 py-3 bg-[#0C0C14] border border-[#2D3748] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all"
+                                        className="w-full px-4 py-3 bg-[#0C0C14] border border-[#2D3748] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6871E1] focus:border-transparent transition-all"
                                         required
                                         autoFocus
                                     />
@@ -292,7 +305,7 @@ export default function DashboardPage() {
                                     <Button
                                         type="submit"
                                         disabled={isAdding}
-                                        className="flex-1 bg-[#5850ec] hover:bg-[#4338ca] text-white disabled:opacity-50"
+                                        className="flex-1 bg-[#6871E1] hover:bg-[#5861cf] text-white disabled:opacity-50"
                                     >
                                         {isAdding ? 'Adding...' : 'Create monitor'}
                                     </Button>

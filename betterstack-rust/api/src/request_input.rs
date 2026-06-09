@@ -14,4 +14,5 @@ pub struct CreateUserInput {
 pub struct SignInInput {
     pub username: String,
     pub password: String,
+    pub remember_me: Option<bool>,
 }

@@ -1,8 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Activity, ArrowUpRight, LayoutDashboard, LogOut } from 'lucide-react';
-import Link from 'next/link';
+import { Menu, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -10,79 +9,87 @@ interface HeaderProps {
   isLoggedIn?: boolean;
 }
 
-export function Header({ isLoggedIn: isLoggedInOverride }: HeaderProps) {
-  const [hasSession, setHasSession] = useState(isLoggedInOverride ?? false);
+export function Header({ isLoggedIn = false }: HeaderProps) {
+  const [isDark, setIsDark] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const syncSession = () => {
-      setHasSession(isLoggedInOverride ?? Boolean(localStorage.getItem('token')));
-    };
+    setMounted(true);
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    setIsDark(isDarkMode);
+  }, []);
 
-    syncSession();
-    window.addEventListener('storage', syncSession);
-    return () => window.removeEventListener('storage', syncSession);
-  }, [isLoggedInOverride]);
+  const toggleTheme = () => {
+    if (!mounted) return;
+    const html = document.documentElement;
+    html.classList.toggle('dark');
+    setIsDark(!isDark);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    setHasSession(false);
     router.push('/');
   };
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-5">
-      <div className="liquid-glass mx-auto flex h-14 max-w-6xl items-center justify-between rounded-2xl px-3 sm:h-16 sm:px-5">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="relative grid h-9 w-9 place-items-center overflow-hidden rounded-xl border border-white/15 bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
-            <span className="absolute inset-0 bg-gradient-to-br from-cyan-300/20 via-transparent to-violet-400/30" />
-            <Activity className="relative h-4.5 w-4.5 transition-transform duration-300 group-hover:scale-110" />
+    <header className="fixed top-0 inset-x-0 z-50 transition-all duration-300 bg-[#0C0C14] border-b border-white/[0.05]">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex items-center gap-2 group cursor-pointer z-50" onClick={() => router.push('/')}>
+          {/* Logo Icon Mockup */}
+          <div className="w-6 h-6 text-white">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+              <path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z" />
+            </svg>
+          </div>
+          <span className="text-lg font-bold text-white tracking-tight">
+            Better Stack
           </span>
-          <span className="text-[15px] font-semibold tracking-[-0.02em] text-white sm:text-base">
-            UpSignal
-          </span>
-        </Link>
-
-        <div className="hidden items-center gap-2 text-xs text-white/55 sm:flex">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-50" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-          </span>
-          Self-hosted monitoring
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {hasSession ? (
+        {/* Right Actions */}
+        <div className="hidden lg:flex items-center gap-6 z-50 ">
+          {isLoggedIn ? (
             <>
-              <Button asChild variant="ghost" className="h-9 rounded-xl px-3 text-white/75 hover:bg-white/10 hover:text-white">
-                <Link href="/dashboard">
-                  <LayoutDashboard className="h-4 w-4 sm:mr-1.5" />
-                  <span className="hidden sm:inline">Dashboard</span>
-                </Link>
+              <Button
+                onClick={() => router.push('/dashboard')}
+                variant="ghost"
+                className="text-gray-300 hover:text-white hover:bg-transparent transition-colors font-medium text-[14px] p-0 h-auto"
+              >
+                Dashboard
               </Button>
               <Button
                 onClick={handleLogout}
                 variant="ghost"
-                aria-label="Log out"
-                className="h-9 w-9 rounded-xl p-0 text-white/55 hover:bg-white/10 hover:text-white"
+                className="text-gray-300 hover:text-white hover:bg-white/5 transition-colors font-medium text-[14px]"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
               </Button>
             </>
           ) : (
             <>
-              <Button asChild variant="ghost" className="h-9 rounded-xl px-3 text-white/70 hover:bg-white/10 hover:text-white">
-                <Link href="/user/signin">Sign in</Link>
+              <Button
+                variant="ghost"
+                onClick={() => router.push('/user/signin')}
+                className="text-gray-300 hover:text-white  hover:bg-transparent transition-colors font-medium text-[14px] p-0 h-auto"
+              >
+                Sign in
               </Button>
-              <Button asChild className="glass-button h-9 rounded-xl px-3.5 text-sm font-medium text-white">
-                <Link href="/user/signup">
-                  Start free
-                  <ArrowUpRight className="ml-1.5 h-3.5 w-3.5" />
-                </Link>
+              <Button
+                onClick={() => router.push('/user/signup')}
+                className="bg-[#5850ec] hover:bg-[#4338ca] text-white font-medium px-4 py-2 rounded-md transition-all shadow-md text-[14px] h-9"
+              >
+                Sign up
               </Button>
             </>
           )}
         </div>
+
+        <button className="lg:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors z-50">
+          <Menu className="w-6 h-6" />
+        </button>
       </div>
     </header>
   );

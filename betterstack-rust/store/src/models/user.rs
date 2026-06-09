@@ -70,4 +70,14 @@ impl Store {
 
         Ok(user_result.email)
     }
+
+    pub fn get_user_info(&mut self, user_id: &str) -> Result<(String, String), diesel::result::Error> {
+        use crate::schema::user::dsl::*;
+        let user_result = user
+            .find(user_id)
+            .select(User::as_select())
+            .first(&mut self.conn)?;
+
+        Ok((user_result.username, user_result.email))
+    }
 }

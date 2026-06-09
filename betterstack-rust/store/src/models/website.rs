@@ -80,7 +80,10 @@ impl Store {
         website.select(Website::as_select()).load(&mut self.conn)
     }
 
-    pub fn get_website_global(&mut self, target_id: &str) -> Result<Website, diesel::result::Error> {
+    pub fn get_website_global(
+        &mut self,
+        target_id: &str,
+    ) -> Result<Website, diesel::result::Error> {
         use crate::schema::website::dsl::*;
 
         website

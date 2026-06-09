@@ -119,7 +119,7 @@ pub fn get_website(
         })
         .collect();
 
-    let streak = lock.get_current_streak(&id).unwrap_or(None);
+    let streak = lock.get_current_streak(&id, region).unwrap_or(None);
 
     // Map buckets to response graph data
     let graph_data = req_buckets
@@ -186,7 +186,9 @@ pub fn get_websites(
                 .ok()
                 .and_then(|vec| vec.into_iter().next());
 
-            let streak = lock.get_current_streak(&w.id).unwrap_or(None);
+            let streak = lock
+                .get_current_streak(&w.id, region_filter)
+                .unwrap_or(None);
 
             WebsiteInfo {
                 id: w.id,

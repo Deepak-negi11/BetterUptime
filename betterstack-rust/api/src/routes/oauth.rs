@@ -1,5 +1,5 @@
 use crate::routes::hashing::hash_password;
-use crate::routes::user::create_jwt;
+use crate::routes::user::create_remembered_jwt;
 use poem::http::StatusCode;
 use poem::web::{Data, Query, Redirect};
 use poem::{handler, Error, Result};
@@ -240,7 +240,7 @@ fn finish_oauth_login(store: &Arc<Mutex<Store>>, provider: &str, email: &str) ->
         }
     };
 
-    let token = create_jwt(&user_id)?;
+    let token = create_remembered_jwt(&user_id)?;
     Ok(redirect_frontend_token(&token))
 }
 

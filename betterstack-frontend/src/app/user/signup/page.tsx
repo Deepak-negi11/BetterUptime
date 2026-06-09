@@ -5,8 +5,9 @@ import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BACKEND_URL, getOAuthUrl } from '@/lib/utils';
+import { getValidStoredToken } from '@/lib/auth';
 
 export default function SignUpPage() {
     const router = useRouter();
@@ -18,6 +19,12 @@ export default function SignUpPage() {
         password: '',
         email: ''
     });
+
+    useEffect(() => {
+        if (getValidStoredToken()) {
+            router.replace('/dashboard');
+        }
+    }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
