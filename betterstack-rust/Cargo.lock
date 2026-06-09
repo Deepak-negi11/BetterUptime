@@ -2690,6 +2690,7 @@ dependencies = [
  "redis",
  "reqwest",
  "serde",
+ "serde_json",
  "store",
  "tokio",
  "url",

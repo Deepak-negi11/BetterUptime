@@ -44,6 +44,37 @@ async fn send_smtp_email(
     website_url: &str,
     status: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Ok(resend_key) = std::env::var("RESEND_API_KEY") {
+        if !resend_key.trim().is_empty() {
+            println!("📧 Sending email alert using Resend API to {}", to);
+            let client = reqwest::Client::new();
+            let body = serde_json::json!({
+                "from": "BetterUptime Alerts <onboarding@resend.dev>",
+                "to": [to],
+                "subject": format!("Alert: {} is {}", website_url, status),
+                "html": format!(
+                    "Your website {} status changed to {}.<br/>Detected at: {} UTC.",
+                    website_url,
+                    status,
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+                )
+            });
+
+            let res = client.post("https://api.resend.com/emails")
+                .bearer_auth(resend_key)
+                .json(&body)
+                .send()
+                .await?;
+
+            if !res.status().is_success() {
+                let err_text = res.text().await?;
+                return Err(format!("Resend API error: {}", err_text).into());
+            }
+            return Ok(());
+        }
+    }
+
+    println!("📧 Sending email alert using SMTP to {}", to);
     use lettre::transport::smtp::authentication::Credentials;
     use lettre::{Message, SmtpTransport, Transport};
 

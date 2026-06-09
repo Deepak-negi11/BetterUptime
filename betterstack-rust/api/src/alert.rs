@@ -6,6 +6,37 @@ pub async fn send_email_alert(
     url: &str,
     status: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if let Ok(resend_key) = std::env::var("RESEND_API_KEY") {
+        if !resend_key.trim().is_empty() {
+            println!("📧 Sending email alert using Resend API to {}", target_email);
+            let client = reqwest::Client::new();
+            let body = serde_json::json!({
+                "from": "BetterUptime Alerts <onboarding@resend.dev>",
+                "to": [target_email],
+                "subject": format!("Alert: {} is {}", url, status),
+                "html": format!(
+                    "Your website {} status changed to {}.<br/>Detected at: {} UTC.",
+                    url,
+                    status,
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+                )
+            });
+
+            let res = client.post("https://api.resend.com/emails")
+                .bearer_auth(resend_key)
+                .json(&body)
+                .send()
+                .await?;
+
+            if !res.status().is_success() {
+                let err_text = res.text().await?;
+                return Err(format!("Resend API error: {}", err_text).into());
+            }
+            return Ok(());
+        }
+    }
+
+    println!("📧 Sending email alert using SMTP to {}", target_email);
     let smtp_user = std::env::var("SMTP_USER").map_err(|_| "SMTP_USER env var not set")?;
     let smtp_password = std::env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD env var not set")?;
     let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| {
