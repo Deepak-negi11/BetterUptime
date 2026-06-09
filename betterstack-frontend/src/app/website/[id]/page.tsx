@@ -201,7 +201,7 @@ export default function WebsiteDetailPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-[#0B0D15]">
+            <div className="min-h-screen bg-[#0B0D15] dashboard-zoom">
                 <DashboardSidebar
                     mobileOpen={mobileSidebarOpen}
                     onMobileOpen={() => setMobileSidebarOpen(true)}
@@ -216,7 +216,7 @@ export default function WebsiteDetailPage() {
 
     if (error || !website) {
         return (
-            <div className="min-h-screen bg-[#0B0D15]">
+            <div className="min-h-screen bg-[#0B0D15] dashboard-zoom">
                 <DashboardSidebar
                     mobileOpen={mobileSidebarOpen}
                     onMobileOpen={() => setMobileSidebarOpen(true)}
@@ -310,7 +310,7 @@ export default function WebsiteDetailPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#0B0D15] text-white font-sans">
+        <div className="min-h-screen bg-[#0B0D15] text-white font-sans dashboard-zoom">
             <DashboardSidebar
                 mobileOpen={mobileSidebarOpen}
                 onMobileOpen={() => setMobileSidebarOpen(true)}

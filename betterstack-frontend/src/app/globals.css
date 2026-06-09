@@ -275,3 +275,8 @@
     @apply bg-muted rounded-full hover:bg-muted-foreground/50 transition-colors;
   }
 }
+
+/* Dashboard 85% zoom for a compact, professional look */
+.dashboard-zoom {
+  zoom: 0.85;
+}
