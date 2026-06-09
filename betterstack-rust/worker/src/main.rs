@@ -8,6 +8,44 @@ use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
 use store::store::Store;
 use url::Url;
 
+async fn send_smtp_email(
+    to: &str,
+    website_url: &str,
+    status: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use lettre::transport::smtp::authentication::Credentials;
+    use lettre::{Message, SmtpTransport, Transport};
+
+    let smtp_user = std::env::var("SMTP_USER").map_err(|_| "SMTP_USER env var not set")?;
+    let smtp_password = std::env::var("SMTP_PASSWORD").map_err(|_| "SMTP_PASSWORD env var not set")?;
+    let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "smtp-relay.brevo.com".to_string());
+    let smtp_port = std::env::var("SMTP_PORT")
+        .unwrap_or_else(|_| "587".to_string())
+        .parse::<u16>()?;
+
+    let email = Message::builder()
+        .from(smtp_user.parse()?)
+        .to(to.parse()?)
+        .subject(format!("Alert: {} is {}", website_url, status))
+        .body(format!(
+            "Your website {} status changed to {}.\nDetected at: {} UTC.",
+            website_url,
+            status,
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+        ))?;
+
+    let creds = Credentials::new(smtp_user, smtp_password);
+
+    let mailer = SmtpTransport::starttls_relay(&smtp_host)?
+        .port(smtp_port)
+        .credentials(creds)
+        .build();
+
+    tokio::task::spawn_blocking(move || mailer.send(&email)).await??;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     dotenvy::dotenv().ok();
@@ -80,7 +118,7 @@ async fn run_worker_cycle(
     if events.is_empty() {
         events = match x_read_group(region_id, worker_id, redis_conn, ">").await {
             Ok(evs) => evs,
-            Err(e) if e.is_timeout() => return Ok(()), // Ignore timeout
+            Err(e) if e.is_timeout() || e.to_string().to_lowercase().contains("timed out") => return Ok(()), // Ignore timeout
             Err(e) => return Err(e.into()),
         };
     }
@@ -101,16 +139,46 @@ async fn run_worker_cycle(
     {
         let mut store_lock = store.lock().unwrap();
         for (website_id, status, response_time) in &results {
+            let last_tick = store_lock.get_ticks(website_id, None, 1)
+                .ok()
+                .and_then(|ticks| ticks.into_iter().next());
+
+            let new_status = status.clone();
+
             match store_lock.create_website_tick(
                 website_id.clone(),
                 region_id.to_string(),
                 *response_time as i32,
                 status.clone(),
             ) {
-                Ok(_) => println!(
-                    "[{}] ✅ Saved tick: {} = {} ({}ms)",
-                    region_id, website_id, status, response_time
-                ),
+                Ok(_) => {
+                    println!(
+                        "[{}] ✅ Saved tick: {} = {} ({}ms)",
+                        region_id, website_id, status, response_time
+                    );
+
+                    // Check if status changed
+                    if let Some(prev) = last_tick {
+                        if prev.status != new_status {
+                            println!(
+                                "[{}] 📢 Status change detected for {}: {} -> {}",
+                                region_id, website_id, prev.status, new_status
+                            );
+
+                            if let Ok(website) = store_lock.get_website_global(website_id) {
+                                if let Ok(email) = store_lock.get_user_by_id(&website.user_id) {
+                                    let url = website.url.clone();
+                                    let status_str = format!("{}", new_status);
+                                    tokio::spawn(async move {
+                                        if let Err(err) = send_smtp_email(&email, &url, &status_str).await {
+                                            eprintln!("🔥 Failed to send email alert: {:?}", err);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
                 Err(e) => eprintln!("[{}] ❌ Failed to save tick: {}", region_id, e),
             }
         }

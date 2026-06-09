@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://146.190.33.150:3001';
 
+async function forwardResponse(response: Response) {
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('application/json')
+        ? await response.json()
+        : { message: (await response.text()) || response.statusText || 'Request failed' };
+
+    return NextResponse.json(body, { status: response.status });
+}
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     const { path } = await params;
     const url = `${BACKEND_URL}/${path.join('/')}${request.nextUrl.search}`;
@@ -13,8 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         },
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return forwardResponse(response);
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
@@ -31,6 +39,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         body: JSON.stringify(body),
     });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    return forwardResponse(response);
 }
