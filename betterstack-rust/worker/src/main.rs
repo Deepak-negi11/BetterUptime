@@ -137,8 +137,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             match run_worker_cycle(&region_id, &worker_id, &http_client, &mut conn, &store).await {
                 Ok(_) => {}
                 Err(e) => {
-                    let error_msg = format!("{:?}", e);
-                    if error_msg.contains("broken pipe") || error_msg.contains("connection") {
+                    let error_msg = format!("{:?}", e).to_lowercase();
+                    if error_msg.contains("broken pipe")
+                        || error_msg.contains("connection")
+                        || error_msg.contains("timed out")
+                        || error_msg.contains("timeout")
+                    {
                         eprintln!("🔄 Reconnecting to Redis in {}: {:?}", region_id, e);
                         break; // Break inner loop to reconnect
                     }
