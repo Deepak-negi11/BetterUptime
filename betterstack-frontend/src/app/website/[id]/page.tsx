@@ -8,8 +8,6 @@ import { DashboardSidebar } from '@/components/dashboard-sidebar';
 import { BACKEND_URL } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import {
-    Pause,
-    Settings,
     AlertTriangle,
     ChevronDown,
     Send,
@@ -356,17 +354,9 @@ export default function WebsiteDetailPage() {
                             Incidents
                         </button>
                         <span className="text-white/10">|</span>
-                        <button className="flex items-center gap-2 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded p-1" aria-label="Pause monitor">
-                            <Pause className="w-4 h-4" />
-                            Pause
-                        </button>
                         <Button variant="destructive" onClick={handleDelete} className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white focus-visible:ring-2 focus-visible:ring-red-500">
                             Delete Monitor
                         </Button>
-                        <button className="flex items-center gap-2 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded p-1" aria-label="Configure settings">
-                            <Settings className="w-4 h-4" />
-                            Configure
-                        </button>
                     </div>
                 </div>
 

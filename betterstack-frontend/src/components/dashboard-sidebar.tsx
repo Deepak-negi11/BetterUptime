@@ -25,6 +25,15 @@ const navigation = [
   { label: 'Alert Incidents', icon: TriangleAlert },
 ];
 
+async function getGravatarUrl(email: string): Promise<string> {
+  const cleaned = email.trim().toLowerCase();
+  const msgBuffer = new TextEncoder().encode(cleaned);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `https://www.gravatar.com/avatar/${hashHex}?d=404`;
+}
+
 export function DashboardSidebar({
   mobileOpen,
   onMobileOpen,
@@ -33,6 +42,8 @@ export function DashboardSidebar({
   const router = useRouter();
   const [email, setEmail] = useState('Loading account...');
   const [username, setUsername] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [useFallbackAvatar, setUseFallbackAvatar] = useState(false);
 
   useEffect(() => {
     const token = getValidStoredToken();
@@ -42,9 +53,17 @@ export function DashboardSidebar({
       .get(`${BACKEND_URL}/user/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((response) => {
-        setEmail(response.data.email);
+      .then(async (response) => {
+        const userEmail = response.data.email;
+        setEmail(userEmail);
         setUsername(response.data.username);
+        
+        try {
+          const url = await getGravatarUrl(userEmail);
+          setAvatarUrl(url);
+        } catch (e) {
+          console.error('Failed to generate gravatar url', e);
+        }
       })
       .catch(() => {
         setEmail('Signed-in account');
@@ -136,9 +155,18 @@ export function DashboardSidebar({
 
         <div className="mt-auto space-y-2 border-t border-white/[0.07] p-3">
           <div className="flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#7C3AED] text-2xl font-medium uppercase text-white">
-              {(username || email).charAt(0).toUpperCase()}
-            </span>
+            {avatarUrl && !useFallbackAvatar ? (
+              <img
+                src={avatarUrl}
+                alt={username || email}
+                onError={() => setUseFallbackAvatar(true)}
+                className="h-9 w-9 shrink-0 rounded-full object-cover border border-white/10"
+              />
+            ) : (
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#7C3AED] text-sm font-semibold uppercase text-white">
+                {(username || email).charAt(0)}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               {username && (
                 <span className="block truncate text-base font-medium text-white">{username}</span>
