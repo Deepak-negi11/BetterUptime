@@ -45,6 +45,7 @@ pub async fn ensure_group_exists(
     con: &mut MultiplexedConnection,
     group_name: &str,
 ) -> RedisResult<()> {
+    println!("[DEBUG Redis] XGROUP CREATE for {} ...", group_name);
     let result: RedisResult<()> = redis::cmd("XGROUP")
         .arg("CREATE")
         .arg(STREAM_NAME)
@@ -55,9 +56,18 @@ pub async fn ensure_group_exists(
         .await;
 
     match result {
-        Ok(_) => Ok(()),
-        Err(e) if e.to_string().contains("BUSYGROUP") => Ok(()), // Already exists
-        Err(e) => Err(e),
+        Ok(_) => {
+            println!("[DEBUG Redis] XGROUP CREATE for {} succeeded", group_name);
+            Ok(())
+        }
+        Err(e) if e.to_string().contains("BUSYGROUP") => {
+            println!("[DEBUG Redis] XGROUP CREATE for {} already exists (BUSYGROUP)", group_name);
+            Ok(())
+        }
+        Err(e) => {
+            println!("[DEBUG Redis] XGROUP CREATE for {} failed: {:?}", group_name, e);
+            Err(e)
+        }
     }
 }
 
@@ -69,7 +79,7 @@ pub async fn x_read_group(
     con: &mut MultiplexedConnection,
     start_id: &str,
 ) -> RedisResult<Vec<WebsiteEvent>> {
-    // eprintln!("DEBUG: ensure_group_exists for {}", consumer_group);
+    println!("[DEBUG Redis] x_read_group start for {}, start_id={}", consumer_group, start_id);
     ensure_group_exists(con, consumer_group).await?;
 
     let mut opts = StreamReadOptions::default()
@@ -82,11 +92,11 @@ pub async fn x_read_group(
         opts = opts.block(2000);
     }
 
-    // eprintln!("DEBUG: xread_options start for {}, start_id={}", consumer_group, start_id);
+    println!("[DEBUG Redis] xread_options calling with start_id={}", start_id);
     let reply: StreamReadReply = con
         .xread_options(&[STREAM_NAME], &[start_id], &opts)
         .await?;
-    // eprintln!("DEBUG: xread_options done");
+    println!("[DEBUG Redis] xread_options completed, found keys={}", reply.keys.len());
 
     let mut events = Vec::new();
     for stream_key in reply.keys {
