@@ -85,7 +85,8 @@ pub fn signup(
     let id = locked_s
         .sign_up(username, hashed_password, email)
         .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
-    let response = CreateUserOutput { id };
+    let token = create_remembered_jwt(&id)?;
+    let response = CreateUserOutput { id, jwt: token };
 
     Ok(Json(response))
 }

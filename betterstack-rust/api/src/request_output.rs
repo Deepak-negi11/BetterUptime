@@ -6,6 +6,7 @@ pub struct CreateWebsiteOutput {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct CreateUserOutput {
     pub id: String,
+    pub jwt: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

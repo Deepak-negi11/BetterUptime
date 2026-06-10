@@ -38,8 +38,9 @@ export default function SignUpPage() {
                 email: formData.email
             });
 
+            localStorage.setItem('token', response.data.jwt);
             console.log('Signup successful:', formData.username);
-            router.push('/user/signin');
+            router.push('/dashboard');
         } catch (err: any) {
             console.error('Signup error:', err);
             setError(err.response?.data?.message || 'Failed to create account. Please try again.');
