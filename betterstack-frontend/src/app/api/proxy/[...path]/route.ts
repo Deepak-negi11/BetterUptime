@@ -41,3 +41,34 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return forwardResponse(response);
 }
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+    const { path } = await params;
+    const url = `${BACKEND_URL}/${path.join('/')}${request.nextUrl.search}`;
+    const text = await request.text();
+
+    const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+            'Authorization': request.headers.get('Authorization') || '',
+            'Content-Type': 'application/json',
+        },
+        body: text || undefined,
+    });
+
+    return forwardResponse(response);
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+    const { path } = await params;
+    const url = `${BACKEND_URL}/${path.join('/')}${request.nextUrl.search}`;
+
+    const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': request.headers.get('Authorization') || '',
+        },
+    });
+
+    return forwardResponse(response);
+}

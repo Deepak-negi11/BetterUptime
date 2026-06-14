@@ -63,6 +63,7 @@ services:
       REDIS_URL: redis://127.0.0.1:6379
       JWT_SECRET: ${JWT_SECRET:-deepak}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}

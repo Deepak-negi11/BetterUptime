@@ -4,7 +4,7 @@
 
 ```
                     ┌─────────────────────────────────────────┐
-                    │     CENTRAL SERVER (139.59.74.210)      │
+                    │     CENTRAL SERVER (143.110.154.24)      │
                     │  ┌─────────┐ ┌─────────┐ ┌───────────┐  │
                     │  │ Postgres│ │  Redis  │ │    API    │  │
                     │  │  :5432  │ │  :6379  │ │   :3001   │  │
@@ -28,10 +28,10 @@
 
 ## Step 1: Deploy Central Server
 
-SSH into your central droplet (139.59.74.210):
+SSH into your central droplet (143.110.154.24):
 
 ```bash
-ssh root@139.59.74.210
+ssh root@143.110.154.24
 ```
 
 ### 1.1 Clone the Repository
@@ -147,7 +147,7 @@ Add to your central server:
 cd /opt/betteruptime/betterstack-frontend
 
 # Create .env.local
-echo "NEXT_PUBLIC_API_URL=http://139.59.74.210:3001" > .env.local
+echo "NEXT_PUBLIC_API_URL=http://143.110.154.24:3001" > .env.local
 
 # Run with npm
 npm install
@@ -161,7 +161,7 @@ Use Vercel, Netlify, or another frontend hosting service.
 
 Set environment variable:
 ```
-NEXT_PUBLIC_API_URL=http://139.59.74.210:3001
+NEXT_PUBLIC_API_URL=http://143.110.154.24:3001
 ```
 
 ---
@@ -207,7 +207,7 @@ NEXT_PUBLIC_API_URL=http://139.59.74.210:3001
 ### Worker can't connect to Redis/DB
 
 1. Check firewall: `ufw status`
-2. Test connectivity: `telnet 139.59.74.210 6379`
+2. Test connectivity: `telnet 143.110.154.24 6379`
 3. Verify password matches central server
 
 ### Container keeps restarting

@@ -1,181 +1,187 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { BACKEND_URL } from '@/lib/utils';
 import axios from 'axios';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { BACKEND_URL } from '@/lib/utils';
 import { getValidStoredToken } from '@/lib/auth';
+import { Logo } from '@/components/logo';
 
 export default function SignInPage() {
-    const router = useRouter();
-    const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState(true);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [formData, setFormData] = useState({
-        username: '',
-        password: '',
-    });
+  const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+  });
 
-    useEffect(() => {
-        if (getValidStoredToken()) {
-            router.replace('/dashboard');
-        }
-    }, [router]);
+  useEffect(() => {
+    if (getValidStoredToken()) {
+      router.push('/dashboard');
+    }
+  }, [router]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-        try {
-            const response = await axios.post(`${BACKEND_URL}/user/signin`, {
-                username: formData.username,
-                password: formData.password,
-                remember_me: rememberMe
-            });
+    try {
+      const response = await axios.post(`${BACKEND_URL}/user/signin`, {
+        username: formData.username,
+        password: formData.password,
+        remember_me: rememberMe,
+      });
+      localStorage.setItem('token', response.data.jwt);
+      router.push('/dashboard');
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            localStorage.setItem('token', response.data.jwt);
-            console.log('Signin successful:', formData.username);
-            router.push('/dashboard');
-        } catch (err: any) {
-            console.error('Signin error:', err);
-            setError(err.response?.data?.message || 'Failed to sign in. Please check your credentials.');
-        } finally {
-            setIsLoading(false);
-        }
-    };
+  return (
+    <div className="relative min-h-screen bg-white flex items-center justify-center overflow-hidden px-4">
+      {/* Landing page background layer */}
+      <div className="supaste-gradient-layer" aria-hidden="true" />
 
-    return (
-        <div className="min-h-screen bg-[#0C0C14] flex flex-col">
-            <div className="p-6">
+      {/* Back to home */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 flex items-center gap-2 text-white/50 hover:text-white transition-colors duration-300 text-sm z-10 font-medium"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to home
+      </Link>
+
+      {/* Centered card */}
+      <div className="relative z-10 w-full max-w-md animate-fade-in-up">
+        {/* Form card */}
+        <div className="auth-glass-container rounded-3xl p-8 sm:p-9">
+          {/* Logo & Header */}
+          <div className="text-center mb-8">
+            <Logo className="h-16 w-16 mx-auto mb-4 object-contain animate-float-subtle text-white" />
+            <h1 className="text-2xl font-bold tracking-tight text-white mb-1.5 font-brand">Welcome back</h1>
+            <p className="text-sm text-white/50">Sign in to your monitoring workspace</p>
+          </div>
+
+          {/* Error display */}
+          {error && (
+            <div className="mb-6 rounded-xl bg-red-500/10 border border-red-500/20 backdrop-blur-sm p-4">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Username field */}
+            <div className="space-y-2">
+              <label htmlFor="username" className="block text-xs font-semibold uppercase tracking-wider text-white/75">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="Enter your username"
+                className="auth-glass-input w-full px-4 py-3 text-[14px] placeholder:text-white/30"
+              />
+            </div>
+
+            {/* Password field */}
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-white/75">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Enter your password"
+                  className="auth-glass-input w-full px-4 py-3 pr-12 text-[14px] placeholder:text-white/30"
+                />
                 <button
-                    onClick={() => router.push('/')}
-                    className="flex items-center gap-2 text-white/60 hover:text-white transition-colors"
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors duration-200"
                 >
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="text-sm">Back to home</span>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+              </div>
             </div>
 
-            {/* Main Content */}
-            <div className="flex-1 flex items-center justify-center px-4 py-12">
-                <div className="w-full max-w-md">
-                    {/* Logo/Brand */}
-                    <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-white mb-2">
-                            Welcome back
-                        </h1>
-                        <p className="text-white/50">
-                            Sign in to your account to continue
-                        </p>
-                    </div>
-
-                    {/* Sign In Form */}
-                    <div className="bg-[#13141F] border border-[#1E293B] rounded-xl p-8">
-                        {/* Error Message */}
-                        {error && (
-                            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
-                                {error}
-                            </div>
-                        )}
-                        <form onSubmit={handleSubmit} className="space-y-5">
-                            {/* Email Field */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-white/70 mb-2">
-                                    Username
-                                </label>
-                                <input
-                                    type="username"
-                                    id='username'
-                                    value={formData.username}
-                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                    className="w-full px-4 py-3 bg-[#0C0C14] border border-[#1E293B] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all"
-                                    placeholder="username"
-                                    required
-                                />
-                            </div>
-
-                            {/* Password Field */}
-                            <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <label htmlFor="password" className="block text-sm font-medium text-white/70">
-                                        Password
-                                    </label>
-                                    <Link href="/user/forgot-password" className="text-sm text-[#5850ec] hover:text-[#7C75F0] transition-colors">
-                                        Forgot password?
-                                    </Link>
-                                </div>
-                                <div className="relative">
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        id="password"
-                                        value={formData.password}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        className="w-full px-4 py-3 bg-[#0C0C14] border border-[#1E293B] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#5850ec] focus:border-transparent transition-all pr-12"
-                                        placeholder="••••••••"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-                                    >
-                                        {showPassword ? (
-                                            <EyeOff className="w-5 h-5" />
-                                        ) : (
-                                            <Eye className="w-5 h-5" />
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Remember Me */}
-                            <div className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    id="remember"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 rounded border-[#1E293B] bg-[#0C0C14] text-[#5850ec] focus:ring-[#5850ec] focus:ring-offset-0"
-                                />
-                                <label htmlFor="remember" className="ml-2 text-sm text-white/50">
-                                    Remember me for 30 days
-                                </label>
-                            </div>
-
-                            {/* Submit Button */}
-                            <Button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full bg-[#5850ec] hover:bg-[#4338ca] text-white font-medium py-3 rounded-lg transition-all shadow-lg shadow-[#5850ec]/20 disabled:opacity-50 disabled:cursor-not-allowed h-12"
-                            >
-                                {isLoading ? (
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Signing in...
-                                    </div>
-                                ) : (
-                                    'Sign in'
-                                )}
-                            </Button>
-                        </form>
-
-
-                    </div>
-
-                    {/* Sign Up Link */}
-                    <p className="text-center mt-6 text-white/50">
-                        Don't have an account?{' '}
-                        <Link href="/user/signup" className="text-[#5850ec] hover:text-[#7C75F0] transition-colors font-medium">
-                            Sign up for free
-                        </Link>
-                    </p>
-                </div>
+            {/* Session options */}
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setRememberMe(!rememberMe)}
+                  className={`w-5 h-5 rounded-md border transition-all duration-200 flex items-center justify-center ${
+                    rememberMe
+                      ? 'bg-[#1535BD] border-[#1535BD] shadow-[0_0_12px_rgba(21,53,189,0.4)]'
+                      : 'border-white/20 bg-white/5 hover:border-white/40'
+                  }`}
+                >
+                  {rememberMe && (
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+                <span className="text-[13px] text-white/60 font-medium select-none cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>Remember me</span>
+              </div>
+              <Link
+                href="/user/forgot-password"
+                className="auth-secondary-link text-[13px] font-semibold transition"
+              >
+                Forgot password?
+              </Link>
             </div>
+
+            {/* Submit button */}
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="auth-button-primary w-full h-12 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="w-4 h-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                'Sign in'
+              )}
+            </Button>
+          </form>
+
+          {/* Sign up link inside the card */}
+          <div className="text-center mt-6 pt-5 border-t border-white/10 text-white/50 text-xs">
+            Don&apos;t have an account?{' '}
+            <Link href="/user/signup" className="auth-secondary-link font-semibold transition-colors duration-200">
+              Sign up for free
+            </Link>
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }

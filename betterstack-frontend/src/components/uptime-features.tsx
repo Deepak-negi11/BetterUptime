@@ -1,120 +1,130 @@
 'use client';
 
-import { Globe, Clock, Shield, Calendar, Server, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
+import { ArrowRight, BellRing, Check, GitCompareArrows, Radio, ShieldCheck } from 'lucide-react';
+
+const checks = [
+  ['BLR', '68ms', '#8CC4F1'],
+  ['SFO', '142ms', '#E8AB3A'],
+];
 
 export function UptimeFeatures() {
-    return (
-        <section className="w-full py-24 bg-background">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  return (
+    <section className="relative overflow-hidden bg-[#050617] px-5 py-28 sm:px-8 lg:px-12">
+      <div className="signal-grid absolute inset-0 opacity-40" aria-hidden="true" />
+      <div className="relative mx-auto max-w-[1400px]">
+        <div className="mb-16 grid gap-7 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+          <div>
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.24em] text-[#b993ff]">Designed for the moment something changes</p>
+            <h2 className="max-w-xl text-4xl font-semibold leading-[1.02] tracking-[-0.055em] text-white sm:text-6xl">
+              One signal.<br /><span className="text-white/25">Three clear decisions.</span>
+            </h2>
+          </div>
+          <p className="max-w-xl text-base leading-7 text-white/40 lg:justify-self-end">
+            Monitoring should not make you interpret a wall of numbers. Argus connects regional evidence, incident verification, and alert delivery into one calm workflow.
+          </p>
+        </div>
 
-                <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-                        Best-in-className uptime monitoring.
-                        <br />
-                        <span className="text-foreground">No false positives.</span>
-                    </h2>
-                    <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-8">
-                        Get a screenshot of the error and a second-by-second
-                        <br />
-                        timeline with our fastest 30-second checks.
-                    </p>
-                    <Button
-                        variant="outline"
-                        className="bg-[#191A28] border text-white/70 px-6 py-3 rounded-full hover:bg-[#191A28] hover:text-white transition-all duration-300"
-                    >
-                        Explore website monitoring →
-                    </Button>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <motion.article whileHover={{ y: -5 }} className="liquid-panel group relative overflow-hidden rounded-[28px] p-6 sm:p-8 lg:col-span-7">
+            <div className="liquid-highlight" aria-hidden="true" />
+            <div className="relative">
+              <div className="mb-14 flex items-start justify-between">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-[#b993ff]">
+                  <GitCompareArrows className="h-5 w-5" />
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/25">01 / Compare</span>
+              </div>
+              <h3 className="max-w-md text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">See the same service from two real places.</h3>
+              <p className="mt-4 max-w-lg text-sm leading-6 text-white/38">Separate traces make regional drift obvious. A slowdown in San Francisco never hides inside a global average.</p>
+
+              <div className="mt-10 overflow-hidden rounded-2xl border border-white/[0.07] bg-[#060719]/80 p-5">
+                <div className="mb-7 flex flex-wrap gap-4">
+                  {checks.map(([region, latency, color]) => (
+                    <span key={region} className="flex items-center gap-2 text-xs text-white/50">
+                      <span className="h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 12px ${color}` }} />
+                      {region} <strong className="font-medium text-white/75">{latency}</strong>
+                    </span>
+                  ))}
                 </div>
-                <div className="mt-12 mx-auto relative flex flex-col md:flex-row max-w-[900px] cz-color-12098963">
-                    <div className="flex-1 mt-10 md:mt-0 sm:w-[470px] cz-color-12098963">
-
-                        <div className="md:h-[490px] cz-color-12098963 b">
-                            <img width="760" height="1000" alt="MTR Terminal" className="relative w-[760px] max-w-none" src="/image.png" />
-                        </div>
-                        <div className="-mt-20 md:mt-20 ml-5 md:ml-0 cz-color-12098963">
-                            <h3 className="text-white font-bold text-[18px] md:text-[28px] leading-[117%] cz-color-16777215">
-                                Traceroute &amp; MTR for timeouts
-                            </h3>
-                            <p className="mt-3 text-base md:text-md max-w-[342px] cz-color-12098963">
-                                Understand connection timeouts and request timeouts with edge-based traceroute and MTR outputs.
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex-1 mt-20 sm:w-[470px] cz-color-12098963">
-                        <div className="relative mt-4 rounded-xl border bg-uptime-v3-screenshots border-[#939DB8]/10 bg-[#0F101A] cz-color-12098963 cz-color-1708047">
-                            <div className="hidden md:block absolute -top-28 flex justify-center md:w-[450px] cz-color-12098963">
-                                <img width="472" height="746" alt="" className="relative -right-7 lazyloaded cz-color-12098963" data-src="https://betterstackcdn.com/assets/v2/uptime-v3/incident-screenshot-85499935.png" src="https://betterstackcdn.com/assets/v2/uptime-v3/incident-screenshot-85499935.png" />
-                            </div>
-                            <img width="344" height="350" alt="" className="md:hidden w-full cz-color-12098963 lazyloaded" data-src="https://betterstackcdn.com/assets/v2/uptime-v3/incident-screenshot-sm-a4d9a888.png" src="https://betterstackcdn.com/assets/v2/uptime-v3/incident-screenshot-sm-a4d9a888.png" />
-                            <div className="relative z-10 pl-9 pr-5 py-6 -mt-[30%] md:mt-[40%] cz-color-12098963">
-                                <h4 className="text-white font-medium cz-color-16777215">
-                                    Screenshots &amp; error logs
-                                </h4>
-                                <p className="mt-2 cz-color-12098963">
-                                    We record your API's error message and take a screenshot of your website being down so that
-                                    you know exactly what happened.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="relative mt-6 px-9 py-6 rounded-xl border overflow-hidden border-[#939DB8]/10 bg-[#0F101A] cz-color-12098963 cz-color-1708047">
-                            <div className="absolute inset-0 sm:w-[700px] xl:w-[750px] cz-color-12098963">
-                                <img width="470" height="351" alt="" data-src="screenshot.png" className="lazyloaded cz-color-12098963" src="https://betterstackcdn.com/assets/v2/uptime-v3/playwright-79f69869.jpg" />
-                            </div>
-                            <div className="relative z-10 mt-[55%] cz-color-12098963">
-                                <h4 className="text-white font-medium cz-color-16777215">
-                                    Playwright transaction monitoring
-                                </h4>
-                                <p className="mt-2 cz-color-12098963">
-                                    We test all vital interactions by running a real Chrome browser instance, with a full-fledged JavaScript runtime.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Feature Cards */}
-                <div className="mt-29 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto">
-                    {/* SSL to Domain Expiration */}
-                    <div className="text-left">
-                        <div className="w-10 h-10 mb-4 flex items-center justify-center">
-                            <Shield className="w-5 h-5 text-white/60" />
-                        </div>
-                        <h3 className="text-white font-semibold text-lg mb-3">
-                            From SSL to domain expiration
-                        </h3>
-                        <p className="text-white/50 text-sm leading-relaxed">
-                            Monitor everything. Whether it's your web page, API, ping, SSL, domain expiration, POP3, IMAP, SMTP, DNS, or generic network monitoring. We've got you covered.
-                        </p>
-                    </div>
-
-                    {/* 30s Checks */}
-                    <div className="text-left">
-                        <div className="w-10 h-10 mb-4 flex items-center justify-center">
-                            <Globe className="w-5 h-5 text-white/60" />
-                        </div>
-                        <h3 className="text-white font-semibold text-lg mb-3">
-                            30s checks from around the world
-                        </h3>
-                        <p className="text-white/50 text-sm leading-relaxed">
-                            Get a screenshot of the error and a second-by-second timeline with our fastest 30-second checks.
-                        </p>
-                    </div>
-
-                    {/* Cron Monitoring */}
-                    <div className="text-left">
-                        <div className="w-10 h-10 mb-4 flex items-center justify-center">
-                            <Clock className="w-5 h-5 text-white/60" />
-                        </div>
-                        <h3 className="text-white font-semibold text-lg mb-3">
-                            Cron monitoring
-                        </h3>
-                        <p className="text-white/50 text-sm leading-relaxed">
-                            Never lose a database backup again. Track your CRON jobs and serverless workers and get alerted if they don't run correctly.
-                        </p>
-                    </div>
-                </div>
+                <svg viewBox="0 0 700 180" className="w-full overflow-visible">
+                  {[35, 90, 145].map((y) => <line key={y} x1="0" x2="700" y1={y} y2={y} stroke="rgba(255,255,255,.055)" strokeDasharray="4 8" />)}
+                  <motion.path initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 1.8 }} d="M0 105 C70 96 90 65 150 74 S240 120 300 86 S390 48 450 80 S560 118 700 70" stroke="#8CC4F1" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                  <motion.path initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }} transition={{ duration: 1.8, delay: .2 }} d="M0 132 C80 128 120 112 175 118 S280 145 335 92 S430 62 500 112 S610 130 700 104" stroke="#E8AB3A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                </svg>
+              </div>
             </div>
-        </section>
-    );
+          </motion.article>
+
+          <motion.article whileHover={{ y: -5 }} className="liquid-panel group relative overflow-hidden rounded-[28px] p-6 sm:p-8 lg:col-span-5">
+            <div className="liquid-highlight" aria-hidden="true" />
+            <div className="relative flex h-full flex-col">
+              <div className="mb-14 flex items-start justify-between">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-emerald-300">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/25">02 / Verify</span>
+              </div>
+              <h3 className="text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">An incident needs evidence.</h3>
+              <p className="mt-4 text-sm leading-6 text-white/38">Cross-region verification separates a real outage from a temporary network wobble.</p>
+
+              <div className="mt-auto pt-10">
+                {['BLR check failed', 'SFO check confirmed', 'Incident created'].map((step, index) => (
+                  <div key={step} className="relative flex items-center gap-4 pb-6 last:pb-0">
+                    {index < 2 && <span className="absolute left-[15px] top-8 h-full w-px bg-gradient-to-b from-[#7201EA]/60 to-white/[0.05]" />}
+                    <span className={`relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full border ${index === 2 ? 'border-emerald-300/25 bg-emerald-300/10 text-emerald-200' : 'border-[#7201EA]/35 bg-[#7201EA]/12 text-[#c7a4ff]'}`}>
+                      {index === 2 ? <Check className="h-3.5 w-3.5" /> : <Radio className="h-3.5 w-3.5" />}
+                    </span>
+                    <span className="text-sm text-white/55">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.article>
+
+          <motion.article whileHover={{ y: -5 }} className="liquid-panel group relative overflow-hidden rounded-[28px] p-6 sm:p-8 lg:col-span-12">
+            <div className="liquid-highlight" aria-hidden="true" />
+            <div className="relative grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+              <div>
+                <div className="mb-12 flex items-start justify-between">
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/[0.05] text-[#b993ff]">
+                    <BellRing className="h-5 w-5" />
+                  </span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/25 lg:hidden">03 / Alert</span>
+                </div>
+                <h3 className="text-2xl font-semibold tracking-[-0.04em] text-white sm:text-3xl">Send the useful alert. Skip the panic.</h3>
+                <p className="mt-4 max-w-lg text-sm leading-6 text-white/38">Test the complete alert path before an outage and know exactly where the incident came from.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ['Detected', '00:00', 'Worker saw failure'],
+                  ['Verified', '00:30', 'Second region agreed'],
+                  ['Delivered', '00:32', 'Email reached owner'],
+                ].map(([title, time, description], index) => (
+                  <div key={title} className="rounded-2xl border border-white/[0.07] bg-[#060719]/80 p-5 transition hover:border-[#7201EA]/30 hover:bg-[#7201EA]/[0.06]">
+                    <div className="mb-8 flex items-center justify-between">
+                      <span className="font-mono text-[10px] text-white/25">0{index + 1}</span>
+                      <span className="font-mono text-[10px] text-[#c7a4ff]">{time}</span>
+                    </div>
+                    <p className="text-sm font-medium text-white/75">{title}</p>
+                    <p className="mt-2 text-xs leading-5 text-white/30">{description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.article>
+        </div>
+
+        <div className="mt-12 flex justify-end">
+          <a href="/user/signup" className="group inline-flex items-center gap-3 text-sm font-medium text-white/55 transition hover:text-white">
+            Build your first monitor
+            <span className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/[0.04] transition group-hover:border-[#7201EA]/40 group-hover:bg-[#7201EA]/15">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </a>
+        </div>
+      </div>
+    </section>
+  );
 }

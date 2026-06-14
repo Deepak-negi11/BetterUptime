@@ -7,6 +7,17 @@ pub mod sql_types {
 }
 
 diesel::table! {
+    password_reset_token (id) {
+        id -> Text,
+        user_id -> Text,
+        token -> Text,
+        expires_at -> Timestamp,
+        used -> Bool,
+        created_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     region (id) {
         id -> Text,
         name -> Text,
@@ -46,8 +57,15 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(password_reset_token -> user (user_id));
 diesel::joinable!(website -> user (user_id));
 diesel::joinable!(website_tick -> region (region_id));
 diesel::joinable!(website_tick -> website (website_id));
 
-diesel::allow_tables_to_appear_in_same_query!(region, user, website, website_tick,);
+diesel::allow_tables_to_appear_in_same_query!(
+    password_reset_token,
+    region,
+    user,
+    website,
+    website_tick,
+);

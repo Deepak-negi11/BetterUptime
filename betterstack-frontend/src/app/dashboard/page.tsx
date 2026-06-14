@@ -2,21 +2,22 @@
 
 import { Button } from '@/components/ui/button';
 import { DashboardSidebar } from '@/components/dashboard-sidebar';
+import { useTheme } from '@/lib/use-theme';
 import { BACKEND_URL } from '@/lib/utils';
 import axios from 'axios';
 import {
-    Search,
-    MoreHorizontal,
-    ChevronDown,
-    ChevronRight,
+    Plus,
     AlertCircle,
     X,
     CheckCircle2,
-    AlertTriangle
+    ChevronRight,
+    Globe2,
+    Search,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getValidStoredToken } from '@/lib/auth';
+import { toast } from 'sonner';
 
 interface Website {
     id: string;
@@ -27,35 +28,66 @@ interface Website {
     region_id: string | null;
 }
 
+function prettyHost(url: string) {
+    try {
+        const u = new URL(url);
+        return u.host;
+    } catch {
+        return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    }
+}
+
+function timeAgo(iso: string | null): string {
+    if (!iso) return '—';
+    const date = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (diff < 0) return 'just now';
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function statusMetaFor(status: Website['status']) {
+    if (status === 'unknown') {
+        return { label: 'Checking', dot: 'var(--warn)', tone: 'text-[var(--warn)]' };
+    }
+    if (status === 'up') {
+        return { label: 'Up', dot: 'var(--ok)', tone: 'text-[var(--ok)]' };
+    }
+    return { label: 'Down', dot: 'var(--down)', tone: 'text-[var(--down)]' };
+}
+
 export default function DashboardPage() {
     const router = useRouter();
+    const { theme, toggleTheme } = useTheme();
     const [websites, setWebsites] = useState<Website[]>([]);
-    const [filteredWebsites, setFilteredWebsites] = useState<Website[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newUrl, setNewUrl] = useState('');
     const [isAdding, setIsAdding] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-    const hasActiveIncident = (w: Website) => w.status === 'down';
+    const [mobileNav, setMobileNav] = useState(false);
 
     useEffect(() => {
         fetchWebsites();
-        const interval = setInterval(() => fetchWebsites(), 10000); // refresh every 10 seconds
+        const interval = setInterval(() => fetchWebsites(), 10000);
         return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
-        if (!searchQuery) {
-            setFilteredWebsites(websites);
-        } else {
-            setFilteredWebsites(websites.filter(w =>
-                w.url.toLowerCase().includes(searchQuery.toLowerCase())
-            ));
-        }
-    }, [searchQuery, websites]);
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+                e.preventDefault();
+                document.querySelector<HTMLInputElement>('input[name="dashboard-search"]')?.focus();
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('keydown', onKey);
+        };
+    }, []);
 
     const fetchWebsites = async () => {
         const token = getValidStoredToken();
@@ -63,21 +95,12 @@ export default function DashboardPage() {
             router.push('/user/signin');
             return;
         }
-
-        setIsLoading(true);
         try {
-            console.log('Fetching websites...');
-            console.log('Token exists:', !!token);
-
             const response = await axios.get(`${BACKEND_URL}/websites`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
-            console.log('Fetch response status:', response.status);
-            console.log('Fetch response data:', response.data);
-
             const websiteData = response.data.websites || [];
-            const mappedWebsites = websiteData.map((w: any) => ({
+            const mapped: Website[] = websiteData.map((w: any) => ({
                 id: w.id,
                 url: w.url,
                 status: w.status || 'unknown',
@@ -85,9 +108,7 @@ export default function DashboardPage() {
                 response_time: w.response_time || null,
                 region_id: w.region_id || null,
             }));
-
-            setWebsites(mappedWebsites);
-            setFilteredWebsites(mappedWebsites);
+            setWebsites(mapped);
         } catch (err: any) {
             console.error('Failed to fetch websites:', err);
             if (err.response?.status === 401) {
@@ -103,218 +124,286 @@ export default function DashboardPage() {
         e.preventDefault();
         setIsAdding(true);
         setError(null);
-
+        const cleaned = newUrl.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+        const fullUrl = `https://${cleaned}`;
         try {
             const token = localStorage.getItem('token');
             await axios.post(
                 `${BACKEND_URL}/website`,
-                { url: newUrl },
+                { url: fullUrl },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setNewUrl('');
             setShowAddModal(false);
             fetchWebsites();
+            toast.success('Site added');
         } catch (err: any) {
-            console.error('Failed to add website:', err); const errorMessage = typeof err.response?.data === 'string'
+            const msg = typeof err.response?.data === 'string'
                 ? err.response.data
-                : err.response?.data?.message || 'Failed to add website';
-            setError(errorMessage);
+                : err.response?.data?.message || 'Failed to add site';
+            setError(msg);
         } finally {
             setIsAdding(false);
         }
     };
 
+    const counts = useMemo(() => ({ total: websites.length }), [websites]);
 
+    const filtered = useMemo(() => {
+        return websites.filter((w) => {
+            if (searchQuery && !w.url.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            return true;
+        });
+    }, [websites, searchQuery]);
 
     return (
-        <div className="min-h-screen bg-[#0B0D15] text-white font-sans dashboard-zoom">
-            <DashboardSidebar
-                mobileOpen={mobileSidebarOpen}
-                onMobileOpen={() => setMobileSidebarOpen(true)}
-                onMobileClose={() => setMobileSidebarOpen(false)}
-            />
+        <div className={theme === 'dark' ? 'dark' : ''}>
+            <div className="dashboard-shell app-canvas relative min-h-screen font-sans text-[var(--text)]">
+                <DashboardSidebar
+                    mobileOpen={mobileNav}
+                    onMobileOpen={() => setMobileNav(true)}
+                    onMobileClose={() => setMobileNav(false)}
+                    theme={theme}
+                    onToggleTheme={toggleTheme}
+                />
 
-            <main className="px-4 pb-8 pt-20 sm:px-6 lg:ml-[272px] lg:px-8 lg:pt-8">
-                <div className="mx-auto max-w-7xl">
-                {/* Header Actions */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                    <div>
-                        <p className="mb-1 text-xs font-medium uppercase tracking-[0.16em] text-[#8d82f2]">Workspace</p>
-                        <h1 className="text-3xl font-bold">Monitors</h1>
-                    </div>
-
-                    <div className="flex items-center gap-4 flex-1 md:justify-end">
-                        <div className="relative w-full md:w-80">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                            <input
-                                type="text"
-                                placeholder="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)
-                                }
-                            className="w-full bg-[#13141F] border border-[#2D3748] rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#6871E1] transition-colors"
-                            />
-                            <div className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded border border-[#2D3748] text-[10px] text-white/40">
-                                /
+                <main className="relative z-10 lg:ml-[260px]">
+                    <div className="mx-auto max-w-[1320px] px-4 py-8 sm:px-8 sm:py-10">
+                        {/* Header */}
+                        <div className="dashboard-heading mb-7 flex flex-wrap items-end justify-between gap-4">
+                            <div>
+                                <h1 className="text-[2rem] font-semibold tracking-[-0.035em] text-[var(--text)]">
+                                    Sites
+                                </h1>
+                                <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+                                    {counts.total === 0
+                                        ? 'No sites yet'
+                                        : `Watching ${counts.total} site${counts.total === 1 ? '' : 's'} in real time`}
+                                </p>
                             </div>
-                        </div >
 
-                        <Button
-                            onClick={() => setShowAddModal(true)}
-                            className="bg-[#6871E1] hover:bg-[#5861cf] text-white font-medium px-4"
-                        >
-                            Create monitor
-                            <ChevronDown className="w-4 h-4 ml-2 border-l border-white/20 pl-2" />
-                        </Button>
-                    </div >
-                </div >
+                            <div className="flex flex-wrap items-center gap-2.5">
+                                <div className="relative w-[260px] sm:w-[320px]">
+                                    <Search className="dashboard-search-icon pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                                    <input
+                                        name="dashboard-search"
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search"
+                                        className="dashboard-search h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] pl-9 pr-10 text-[13px] text-[var(--text)] outline-none transition placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)]"
+                                    />
+                                    <span className="dashboard-search-key pointer-events-none absolute right-2.5 top-1/2 grid h-5 -translate-y-1/2 place-items-center rounded border px-1.5 font-mono text-[10px]">
+                                        /
+                                    </span>
+                                </div>
 
-                <div className="border border-[#2D3748] rounded-lg overflow-hidden bg-[#0B0C15]">
-                    <div className="bg-[#13141F] px-4 py-3 flex items-center gap-2 border-b border-[#2D3748]">
-                        <ChevronDown className="w-4 h-4 text-white/60" />
-                        <span className="text-sm font-medium text-white/80">Monitors</span>
-                    </div>
-
-                    {isLoading ? (
-                        <div className="p-8 flex justify-center">
-                            <div className="w-6 h-6 border-2 border-[#6871E1] border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    ) : filteredWebsites.length === 0 ? (
-                        <div className="p-12 text-center text-white/40">
-                            No monitors found
-                        </div>
-                    ) : (
-                        <div>
-                            {filteredWebsites.map((website) => (
-                                <div
-                                    key={website.id}
-                                    onClick={() => router.push(`/website/${website.id}`)}
-                                    className="flex items-center justify-between px-4 py-3 border-b border-[#2D3748] hover:bg-[#13141F] cursor-pointer transition-colors group last:border-0"
+                                <Button
+                                    onClick={() => setShowAddModal(true)}
+                                    className="dashboard-create h-10 rounded-xl px-4 text-[13px] font-semibold text-white"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        {website.status === 'unknown' ? (
-                                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.4)]" />
-                                        ) : website.status === 'up' ? (
-                                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                        ) : (
-                                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
-                                        )}
+                                    <Plus className="h-4 w-4" />
+                                    Add site
+                                </Button>
+                            </div>
+                        </div>
 
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-white text-sm">{website.url}</span>
-                                            <div className="flex items-center gap-1.5 text-xs">
-                                                <span className={
-                                                    website.status === 'unknown' ? 'text-yellow-500' :
-                                                        website.status === 'up' ? 'text-green-500' : 'text-red-500'
-                                                }>
-                                                    {website.status === 'unknown' ? 'Checking...' :
-                                                        website.status === 'up' ? 'Up' : 'Down'}
+                        {/* Table */}
+                        {isLoading && websites.length === 0 ? (
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="h-[148px] animate-pulse rounded-2xl bg-[var(--surface)]" />
+                                ))}
+                            </div>
+                        ) : filtered.length === 0 ? (
+                            <EmptyState searching={!!searchQuery} />
+                        ) : (
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {filtered.map((w) => {
+                                    const meta = statusMetaFor(w.status);
+
+                                    return (
+                                        <div
+                                            key={w.id}
+                                            className="dashboard-monitor-card group/card relative overflow-hidden rounded-[22px] border border-[var(--line)] bg-[var(--surface)] p-5 transition hover:border-[var(--line-strong)]"
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => router.push(`/website/${w.id}`)}
+                                                className="absolute inset-0 z-0"
+                                                aria-label={`Open ${prettyHost(w.url)}`}
+                                            />
+
+                                            {/* Top row: status and endpoint left, response time right */}
+                                            <div className="relative z-10 mb-5 flex items-center justify-between gap-4">
+                                                <div className="flex min-w-0 items-center gap-3">
+                                                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                                        {(w.status === 'up' || w.status === 'down') && (
+                                                            <span
+                                                                className="absolute inset-0 animate-ping rounded-full opacity-60"
+                                                                style={{ background: meta.dot }}
+                                                            />
+                                                        )}
+                                                        <span
+                                                            className="relative h-2.5 w-2.5 rounded-full"
+                                                            style={{ background: meta.dot, boxShadow: `0 0 12px ${meta.dot}` }}
+                                                        />
+                                                    </span>
+                                                    <p
+                                                        className="dashboard-monitor-name truncate text-[22px] font-semibold text-[var(--text)]"
+                                                        title={w.url}
+                                                    >
+                                                        {prettyHost(w.url)}
+                                                    </p>
+                                                </div>
+
+                                                <span className="font-mono text-[11px] tabular-nums text-[var(--text-faint)]">
+                                                    {w.response_time == null
+                                                        ? '—'
+                                                        : `${Math.round(w.response_time)}ms`}
                                                 </span>
-                                                {website.last_check && (
+                                            </div>
+
+                                            <div className="relative z-10 ml-[22px] mt-1 flex items-center gap-2 text-[12px]">
+                                                <span className={`${meta.tone}`}>{meta.label}</span>
+                                                {w.region_id && (
                                                     <>
-                                                        <span className="text-white/30">.</span>
-
-
+                                                        <span className="text-[var(--text-faint)]">·</span>
+                                                        <span className="font-mono uppercase tracking-wider text-[var(--text-faint)]">
+                                                            {w.region_id}
+                                                        </span>
                                                     </>
                                                 )}
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-6">
-                                        {hasActiveIncident(website) && (
-                                            <div className="bg-[#2D1A1A] border border-red-500/20 text-red-500 text-xs px-3 py-1.5 rounded-md flex items-center gap-2">
-                                                <AlertTriangle className="w-3.5 h-3.5" />
-                                                Ongoing incident
-                                                <ChevronRight className="w-3 h-3 opacity-50 ml-1" />
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-4 text-white/40">
-                                            <div className="hidden md:flex items-center gap-2 text-xs">
-                                                <div className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                                                </div>
-
-                                            </div>
-
-                                            <button className="p-1 hover:text-white transition-colors">
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                </div>
-                </div>
-            </main >
-
-
-            {
-                showAddModal && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                        <div className="bg-[#13141F] border border-[#1E293B] rounded-xl p-6 w-full max-w-md shadow-2xl">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-semibold text-white">Add Monitor</h3>
-                                <button
-                                    onClick={() => setShowAddModal(false)}
-                                    className="text-white/40 hover:text-white transition-colors"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
+                                    );
+                                })}
                             </div>
-
-                            {error && (
-                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4" />
-                                    {error}
-                                </div>
-                            )}
-
-                            <form onSubmit={handleAddWebsite}>
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-white/70 mb-2">
-                                        URL to monitor
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={newUrl}
-                                        onChange={(e) => setNewUrl(e.target.value)}
-                                        placeholder="https://example.com"
-                                        className="w-full px-4 py-3 bg-[#0C0C14] border border-[#2D3748] rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6871E1] focus:border-transparent transition-all"
-                                        required
-                                        autoFocus
-                                    />
-                                    <div className="mt-2 flex items-center gap-2 text-xs text-white/40">
-                                        <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                        We'll monitor this URL every 3 minutes from Europe
-                                    </div>
-                                </div>
-                                <div className="flex gap-3">
-                                    <Button
-                                        type="button"
-                                        onClick={() => setShowAddModal(false)}
-                                        variant="outline"
-                                        className="flex-1 bg-transparent border-[#2D3748] text-white hover:bg-[#2D3748]"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        type="submit"
-                                        disabled={isAdding}
-                                        className="flex-1 bg-[#6871E1] hover:bg-[#5861cf] text-white disabled:opacity-50"
-                                    >
-                                        {isAdding ? 'Adding...' : 'Create monitor'}
-                                    </Button>
-                                </div>
-                            </form>
-                        </div>
+                        )}
                     </div>
-                )
-            }
-        </div >
+                </main>
+
+                {showAddModal && (
+                    <AddMonitorModal
+                        url={newUrl}
+                        setUrl={setNewUrl}
+                        error={error}
+                        isAdding={isAdding}
+                        onClose={() => setShowAddModal(false)}
+                        onSubmit={handleAddWebsite}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+function EmptyState({ searching }: { searching: boolean }) {
+    return (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-[var(--line-strong)] bg-[var(--surface)] px-6 py-20 text-center">
+            <span
+                className="mb-5 grid h-14 w-14 place-items-center rounded-2xl text-white"
+                style={{ background: 'linear-gradient(135deg, #1d8aff 0%, #0872F0 100%)', boxShadow: '0 8px 22px rgba(8, 114, 240, 0.32)' }}
+            >
+                <Globe2 className="h-6 w-6" />
+            </span>
+            <h3 className="text-[16px] font-semibold text-[var(--text)]">
+                {searching ? 'Nothing matches your search' : 'No sites yet'}
+            </h3>
+            <p className="mt-2 max-w-sm text-[13px] text-[var(--text-muted)]">
+                {searching
+                    ? 'Try clearing the search field.'
+                    : 'Add your first site and Argus will start checking it from every region.'}
+            </p>
+        </div>
+    );
+}
+
+function AddMonitorModal({
+    url,
+    setUrl,
+    error,
+    isAdding,
+    onClose,
+    onSubmit,
+}: {
+    url: string;
+    setUrl: (s: string) => void;
+    error: string | null;
+    isAdding: boolean;
+    onClose: () => void;
+    onSubmit: (e: React.FormEvent) => void;
+}) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-2xl">
+                <div className="mb-5 flex items-start justify-between">
+                    <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">New site</p>
+                        <h3 className="mt-1 text-[18px] font-semibold text-[var(--text)]">Add a target</h3>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                        aria-label="Close"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                {error && (
+                    <div className="mb-4 flex items-center gap-2 rounded-lg border border-[var(--down)]/30 bg-[var(--down-soft)] p-3 text-[13px] text-[var(--down)]">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={onSubmit}>
+                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+                        Domain
+                    </label>
+                    <div className="mb-3 flex items-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[var(--brand-ring)]">
+                        <span className="select-none border-r border-[var(--line-soft)] px-3 py-2.5 font-mono text-[13px] text-[var(--text-faint)]">
+                            https://
+                        </span>
+                        <input
+                            type="text"
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value.replace(/^https?:\/\//i, ''))}
+                            placeholder="example.com"
+                            className="w-full border-none bg-transparent px-3 py-2.5 text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
+                            required
+                            autoFocus
+                        />
+                    </div>
+                    <div className="mb-6 flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[var(--ok)]" />
+                        Checked from every active region, around the clock.
+                    </div>
+                    <div className="flex gap-2.5">
+                        <Button
+                            type="button"
+                            onClick={onClose}
+                            variant="outline"
+                            className="flex-1 border-[var(--line)] bg-transparent text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={isAdding}
+                            className="flex-1 font-semibold text-white disabled:opacity-50"
+                            style={{
+                                background: 'linear-gradient(180deg, #1d8aff 0%, #0872F0 100%)',
+                                boxShadow: '0 1px 0 rgba(255,255,255,0.18) inset, 0 8px 18px rgba(8, 114, 240, 0.30)',
+                            }}
+                        >
+                            {isAdding ? 'Adding…' : 'Create endpoint'}
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
     );
 }

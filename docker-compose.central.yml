@@ -1,5 +1,5 @@
 # CENTRAL SERVER DEPLOYMENT
-# Deploy this on your main DigitalOcean droplet (139.59.74.210)
+# Deploy this on your main DigitalOcean droplet (143.110.154.24)
 # Contains: PostgreSQL, Redis, API, Pusher
 #
 # Usage:

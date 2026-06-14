@@ -1,5 +1,8 @@
-use crate::request_input::{CreateUserInput, SignInInput};
-use crate::request_output::{CreateUserOutput, SignInOutput, UserProfileOutput};
+use crate::alert::send_password_reset_email;
+use crate::request_input::{
+    CreateUserInput, ForgotPasswordInput, ResetPasswordInput, SignInInput, UpdateProfileInput,
+};
+use crate::request_output::{CreateUserOutput, MessageOutput, SignInOutput, UserProfileOutput};
 use crate::routes::authmiddleware::UserId;
 use crate::routes::hashing::{hash_password, verify_password};
 use std::env;
@@ -145,4 +148,107 @@ pub fn profile(
         .map_err(|_| Error::from_status(StatusCode::NOT_FOUND))?;
 
     Ok(Json(UserProfileOutput { email, username }))
+}
+
+#[handler]
+pub fn update_profile(
+    Json(data): Json<UpdateProfileInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+    UserId(user_id): UserId,
+) -> Result<Json<UserProfileOutput>, Error> {
+    let trimmed = data.username.trim();
+    if trimmed.is_empty() || trimmed.len() > 64 {
+        return Err(Error::from_status(StatusCode::BAD_REQUEST));
+    }
+
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    locked_s
+        .update_username(&user_id, trimmed)
+        .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
+
+    let (username, email) = locked_s
+        .get_user_info(&user_id)
+        .map_err(|_| Error::from_status(StatusCode::NOT_FOUND))?;
+
+    Ok(Json(UserProfileOutput { email, username }))
+}
+
+#[handler]
+pub fn delete_account(
+    Data(s): Data<&Arc<Mutex<Store>>>,
+    UserId(user_id): UserId,
+) -> Result<Json<MessageOutput>, Error> {
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    locked_s
+        .delete_user(&user_id)
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    Ok(Json(MessageOutput {
+        message: "Account deleted.".to_string(),
+    }))
+}
+
+#[handler]
+pub async fn forgot_password(
+    Json(data): Json<ForgotPasswordInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+) -> Result<Json<MessageOutput>, Error> {
+    let token = {
+        let mut store = s
+            .lock()
+            .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+        store
+            .create_password_reset_token(data.email.trim())
+            .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?
+    };
+
+    if let Some(token) = token {
+        let frontend_url =
+            env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+        let reset_link = format!(
+            "{}/user/reset-password?token={}",
+            frontend_url.trim_end_matches('/'),
+            token
+        );
+        if let Err(error) = send_password_reset_email(data.email.trim(), &reset_link).await {
+            eprintln!("Password reset email failed: {error}");
+        }
+    }
+
+    Ok(Json(MessageOutput {
+        message: "If an account exists for that email, a reset link is on its way.".to_string(),
+    }))
+}
+
+#[handler]
+pub fn reset_password(
+    Json(data): Json<ResetPasswordInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+) -> Result<Json<MessageOutput>, Error> {
+    if data.password.len() < 8 {
+        return Err(Error::from_status(StatusCode::BAD_REQUEST));
+    }
+
+    let hashed_password = hash_password(&data.password)
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let mut store = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let reset = store
+        .reset_password_with_token(&data.token, &hashed_password)
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    if !reset {
+        return Err(Error::from_status(StatusCode::BAD_REQUEST));
+    }
+
+    Ok(Json(MessageOutput {
+        message: "Password updated. You can now sign in.".to_string(),
+    }))
 }

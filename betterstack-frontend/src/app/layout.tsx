@@ -1,33 +1,35 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Instrument_Serif, Inter, Space_Grotesk } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { Toaster } from "@/components/ui/sonner"
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-space-grotesk",
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: "italic",
+  display: "swap",
+  variable: "--font-instrument-serif",
+});
 
 export const metadata: Metadata = {
-  title: 'BetterUptime - Uptime Monitoring Made Simple',
-  description: 'Monitor your websites, APIs, and services 24/7. Get instant alerts, beautiful status pages, and 30-second checks from 190+ locations worldwide.',
-  generator: 'v0.app',
+  title: 'Argus — Monitor Everything. Miss Nothing.',
+  description: 'Multi-region uptime monitoring with instant alerts, response time analytics, and beautiful dashboards. Know when your sites go down before your users do.',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/favicon.ico',
   },
 }
 
@@ -37,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`} suppressHydrationWarning={true} >
+    <html lang="en" className={`${inter.variable} ${instrumentSerif.variable} ${spaceGrotesk.variable}`}>
+      <body className="font-sans antialiased" suppressHydrationWarning={true}>
         {children}
         <Toaster />
         <Analytics />
@@ -46,4 +48,3 @@ export default function RootLayout({
     </html>
   )
 }
-

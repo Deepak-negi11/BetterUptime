@@ -1,61 +1,38 @@
-import { Separator } from '@/components/ui/separator';
+import { ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
+import { Logo } from '@/components/logo';
 
 export function Footer() {
-  const currentYear = new Date().getFullYear();
-
-  const categories = [
-    { title: 'Product', links: ['Features', 'Pricing', 'Security', 'Status'] },
-    { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
-    { title: 'Resources', links: ['Documentation', 'API Docs', 'Support', 'Community'] },
-    { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'Compliance'] },
-  ];
-
   return (
-    <footer className="w-full bg-gradient-to-t from-card/80 to-background border-t border-border/40 backdrop-blur-lg relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 right-0 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse-soft"></div>
-        <div className="absolute -bottom-40 left-0 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1.5s' }}></div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
-        <div className="grid md:grid-cols-4 gap-8 mb-8">
-          {categories.map((category, i) => (
-            <div key={category.title} className="animate-fade-in-up" style={{ animationDelay: `${i * 100}ms` }}>
-              <h3 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">
-                {category.title}
-              </h3>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                {category.links.map((link, li) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="hover:text-primary transition-all duration-300 hover:translate-x-1 inline-block relative group"
-                    >
-                      {link}
-                      <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-primary to-accent group-hover:w-full transition-all duration-300"></span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+    <footer className="relative overflow-hidden border-t border-white/[0.06] bg-[#03040f] px-5 pb-8 pt-20 sm:px-8 lg:px-12">
+      <div className="absolute left-1/2 top-0 h-72 w-[70%] -translate-x-1/2 rounded-full bg-[#7201EA]/10 blur-[120px]" aria-hidden="true" />
+      <div className="relative mx-auto max-w-[1400px]">
+        <div className="liquid-panel grid gap-10 overflow-hidden rounded-[32px] p-7 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div className="liquid-highlight" aria-hidden="true" />
+          <div className="relative">
+            <p className="mb-5 font-mono text-[10px] uppercase tracking-[0.22em] text-[#b993ff]">Your next incident will not wait</p>
+            <h2 className="max-w-3xl text-4xl font-semibold leading-[1.02] tracking-[-0.055em] text-white sm:text-6xl">
+              Make your services<br /><span className="text-white/25">easier to trust.</span>
+            </h2>
+          </div>
+          <Link href="/user/signup" className="liquid-primary relative inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-sm font-semibold text-white">
+            Start monitoring
+            <ArrowUpRight className="h-4 w-4" />
+          </Link>
         </div>
 
-        <Separator />
-
-        <div className="py-8 flex flex-col md:flex-row items-center justify-between text-sm text-muted-foreground animate-fade-in-up" style={{ animationDelay: '0.4s' }}>
-          <div className="flex items-center gap-2 mb-4 md:mb-0 group cursor-pointer hover:scale-105 transition-transform duration-300">
-            <div className="w-6 h-6 bg-gradient-to-br from-primary via-accent to-primary rounded flex items-center justify-center shadow-lg shadow-primary/30 group-hover:shadow-primary/50 transition-shadow duration-300">
-              <span className="text-primary-foreground font-bold text-xs">⚡</span>
-            </div>
-            <span className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">
-              Better Stack
+        <div className="flex flex-col gap-6 py-8 text-xs text-white/30 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="flex items-center gap-1.5 text-white/60 font-brand font-semibold">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#7201EA]/20 overflow-hidden p-1 text-white">
+              <Logo className="h-full w-full object-contain" />
             </span>
+            Argus
+          </Link>
+          <div className="flex gap-6">
+            <Link href="/user/signin" className="transition hover:text-white">Sign in</Link>
+            <Link href="/user/forgot-password" className="transition hover:text-white">Account recovery</Link>
           </div>
-
-          <p className="hover:text-foreground transition-colors duration-300">
-            © {currentYear} Better Stack. All rights reserved.
-          </p>
+          <span>Multi-region uptime monitoring</span>
         </div>
       </div>
     </footer>

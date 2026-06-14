@@ -16,3 +16,19 @@ pub struct SignInInput {
     pub password: String,
     pub remember_me: Option<bool>,
 }
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct ForgotPasswordInput {
+    pub email: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct ResetPasswordInput {
+    pub token: String,
+    pub password: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct UpdateProfileInput {
+    pub username: String,
+}

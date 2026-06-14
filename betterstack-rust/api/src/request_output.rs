@@ -21,6 +21,11 @@ pub struct UserProfileOutput {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
+pub struct MessageOutput {
+    pub message: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct TickInfo {
     pub status: String,
     pub response_time: i32,

@@ -168,6 +168,25 @@ pub fn create_website(
 }
 
 #[handler]
+pub fn delete_website(
+    Path(id): Path<String>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+    UserId(user_id): UserId,
+) -> poem::Result<Json<serde_json::Value>> {
+    let mut lock = s.lock().unwrap_or_else(|e| e.into_inner());
+
+    let rows = lock.delete_website(&id, &user_id).map_err(|e| {
+        poem::Error::from_string(e.to_string(), poem::http::StatusCode::INTERNAL_SERVER_ERROR)
+    })?;
+
+    if rows == 0 {
+        return Err(poem::Error::from_status(poem::http::StatusCode::NOT_FOUND));
+    }
+
+    Ok(Json(serde_json::json!({ "status": "success" })))
+}
+
+#[handler]
 pub fn get_websites(
     Query(query): Query<WebsitesQuery>,
     Data(s): Data<&Arc<Mutex<Store>>>,
