@@ -1,6 +1,7 @@
 use crate::alert::send_password_reset_email;
 use crate::request_input::{
     CreateUserInput, ForgotPasswordInput, ResetPasswordInput, SignInInput, UpdateProfileInput,
+    UpdateEmailInput,
 };
 use crate::request_output::{CreateUserOutput, MessageOutput, SignInOutput, UserProfileOutput};
 use crate::routes::authmiddleware::UserId;
@@ -167,6 +168,40 @@ pub fn update_profile(
 
     locked_s
         .update_username(&user_id, trimmed)
+        .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
+
+    let (username, email) = locked_s
+        .get_user_info(&user_id)
+        .map_err(|_| Error::from_status(StatusCode::NOT_FOUND))?;
+
+    Ok(Json(UserProfileOutput { email, username }))
+}
+
+#[handler]
+pub fn update_email(
+    Json(data): Json<UpdateEmailInput>,
+    Data(s): Data<&Arc<Mutex<Store>>>,
+    UserId(user_id): UserId,
+) -> Result<Json<UserProfileOutput>, Error> {
+    let trimmed_email = data.email.trim();
+    if trimmed_email.is_empty() || !trimmed_email.contains('@') {
+        return Err(Error::from_status(StatusCode::BAD_REQUEST));
+    }
+
+    let mut locked_s = s
+        .lock()
+        .map_err(|_| Error::from_status(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+    let password_hash = locked_s
+        .get_user_password_hash(&user_id)
+        .map_err(|_| Error::from_status(StatusCode::NOT_FOUND))?;
+
+    if !verify_password(&data.password_confirm, &password_hash) {
+        return Err(Error::from_status(StatusCode::UNAUTHORIZED));
+    }
+
+    locked_s
+        .update_email(&user_id, trimmed_email)
         .map_err(|_| Error::from_status(StatusCode::CONFLICT))?;
 
     let (username, email) = locked_s

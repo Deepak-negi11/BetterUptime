@@ -64,6 +64,7 @@ interface WebsiteDetails {
     graph_data: WebsiteBucket[];
     streak?: number;
     created_at: string;
+    name?: string | null;
 }
 
 const COMPARE_REGIONS = '__compare_regions__';
@@ -389,14 +390,16 @@ export default function WebsiteDetailPage() {
                         />
                     </span>
                     <div className="min-w-0">
-                        <p className="website-detail-header-text font-mono text-[10px] uppercase tracking-[0.18em]">Site</p>
+                        <p className="website-detail-header-text font-mono text-[10px] uppercase tracking-[0.18em]">
+                            {website.name ? prettyHost(website.url) : 'Site'}
+                        </p>
                         <h1 className="website-detail-domain mt-1 flex items-center gap-3 text-[2.5rem] font-semibold leading-tight tracking-[-0.035em]">
-                            <span className="truncate" title={website.url}>{prettyHost(website.url)}</span>
+                            <span className="truncate" title={website.url}>{website.name || prettyHost(website.url)}</span>
                             <a
                                 href={website.url}
                                 target="_blank"
                                 rel="noreferrer noopener"
-                                aria-label={`Open ${prettyHost(website.url)} in a new tab`}
+                                aria-label={`Open ${website.name || prettyHost(website.url)} in a new tab`}
                                 className="website-detail-header-text group/ext grid h-7 w-7 shrink-0 place-items-center rounded-md transition"
                             >
                                 <ExternalLink className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover/ext:-translate-y-[2px] group-hover/ext:translate-x-[2px]" />

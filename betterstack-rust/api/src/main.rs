@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use poem::{get, listener::TcpListener, middleware::Cors, post, EndpointExt, Route, Server};
+use poem::{get, put, listener::TcpListener, middleware::Cors, post, EndpointExt, Route, Server};
 
 pub mod request_input;
 pub mod request_output;
@@ -8,6 +8,7 @@ use store::store::Store;
 pub mod routes;
 use crate::routes::user::{
     delete_account, forgot_password, profile, reset_password, signin, signup, update_profile,
+    update_email,
 };
 use crate::routes::website::{create_website, delete_website, get_website, get_websites, test_alert_handler};
 pub mod alert;
@@ -30,11 +31,12 @@ async fn main() -> Result<(), std::io::Error> {
         .at("/user/forgot-password", post(forgot_password))
         .at("/user/reset-password", post(reset_password))
         .at("/user/me", get(profile).put(update_profile).delete(delete_account))
+        .at("/user/me/email", put(update_email))
         .at("/user/oauth/google", get(google_start))
         .at("/user/oauth/google/callback", get(google_callback))
         .at("/user/oauth/github", get(github_start))
         .at("/user/oauth/github/callback", get(github_callback))
-        .at("/website/:website_id", get(get_website).delete(delete_website))
+        .at("/website/:id", get(get_website).delete(delete_website))
         .at("/website/:id/alert-test", post(test_alert_handler))
         .at("/website", post(create_website))
         .at("/websites", get(get_websites))

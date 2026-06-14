@@ -40,6 +40,7 @@ diesel::table! {
         time_added -> Timestamp,
         user_id -> Text,
         is_paused -> Bool,
+        name -> Nullable<Text>,
     }
 }
 

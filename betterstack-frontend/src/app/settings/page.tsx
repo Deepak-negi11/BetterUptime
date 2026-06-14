@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
     AtSign,
     Check,
+    Key,
     LogOut,
     Mail,
     Moon,
@@ -23,15 +24,11 @@ import { getValidStoredToken } from '@/lib/auth';
 
 async function getGravatarUrl(email: string): Promise<string> {
     const cleaned = email.trim().toLowerCase();
-    const buf = new TextEncoder().encode(cleaned);
-    const hash = await crypto.subtle.digest('SHA-256', buf);
-    return (
-        'https://www.gravatar.com/avatar/' +
-        Array.from(new Uint8Array(hash))
-            .map((b) => b.toString(16).padStart(2, '0'))
-            .join('') +
-        '?d=404&s=240'
-    );
+    const msgBuffer = new TextEncoder().encode(cleaned);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `https://www.gravatar.com/avatar/${hashHex}?d=404`;
 }
 
 export default function SettingsPage() {
@@ -50,6 +47,13 @@ export default function SettingsPage() {
     const [savingName, setSavingName] = useState(false);
     const nameInputRef = useRef<HTMLInputElement>(null);
 
+    const [editingEmail, setEditingEmail] = useState(false);
+    const [draftEmail, setDraftEmail] = useState('');
+    const [savingEmail, setSavingEmail] = useState(false);
+    const [showEmailConfirmModal, setShowEmailConfirmModal] = useState(false);
+    const [passwordConfirm, setPasswordConfirm] = useState('');
+    const emailInputRef = useRef<HTMLInputElement>(null);
+
     const [sendingReset, setSendingReset] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -67,6 +71,7 @@ export default function SettingsPage() {
                 setUsername(res.data.username || '');
                 setEmail(res.data.email || '');
                 setDraftName(res.data.username || '');
+                setDraftEmail(res.data.email || '');
                 try {
                     if (res.data.email) setAvatarUrl(await getGravatarUrl(res.data.email));
                 } catch {
@@ -82,6 +87,10 @@ export default function SettingsPage() {
     useEffect(() => {
         if (editingName) nameInputRef.current?.focus();
     }, [editingName]);
+
+    useEffect(() => {
+        if (editingEmail) emailInputRef.current?.focus();
+    }, [editingEmail]);
 
     const saveName = async () => {
         const trimmed = draftName.trim();
@@ -109,6 +118,57 @@ export default function SettingsPage() {
             else toast.error('Failed to update name');
         } finally {
             setSavingName(false);
+        }
+    };
+
+    const saveEmail = () => {
+        const trimmed = draftEmail.trim();
+        if (!trimmed || !trimmed.includes('@')) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+        if (trimmed === email) {
+            setEditingEmail(false);
+            setDraftEmail(email);
+            return;
+        }
+        setPasswordConfirm('');
+        setShowEmailConfirmModal(true);
+    };
+
+    const confirmUpdateEmail = async () => {
+        const trimmed = draftEmail.trim();
+        if (!passwordConfirm) return;
+        setSavingEmail(true);
+        try {
+            const token = getValidStoredToken();
+            const res = await axios.put(
+                `${BACKEND_URL}/user/me/email`,
+                { email: trimmed, password_confirm: passwordConfirm },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setEmail(res.data.email);
+            setDraftEmail(res.data.email);
+            setEditingEmail(false);
+            setShowEmailConfirmModal(false);
+            setPasswordConfirm('');
+            toast.success('Email updated successfully');
+            try {
+                setAvatarUrl(await getGravatarUrl(res.data.email));
+            } catch {
+                /* ignore */
+            }
+        } catch (err: any) {
+            const status = err?.response?.status;
+            if (status === 401) {
+                toast.error('Incorrect password');
+            } else if (status === 409) {
+                toast.error('That email is already in use');
+            } else {
+                toast.error('Failed to update email');
+            }
+        } finally {
+            setSavingEmail(false);
         }
     };
 
@@ -175,7 +235,7 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Profile */}
-                        <Section eyebrow="Profile" title="Your account">
+                        <Section eyebrow="Profile" title="Your account" description="Update your profile username.">
                             <div className="flex items-center gap-4">
                                 {avatarUrl && !avatarBroken ? (
                                     // eslint-disable-next-line @next/next/no-img-element
@@ -253,9 +313,60 @@ export default function SettingsPage() {
                                         </div>
                                     )}
 
-                                    <p className="mt-1 truncate text-[13px] text-[var(--text-muted)]">
-                                        {isLoaded ? email || '—' : '…'}
-                                    </p>
+                                    {editingEmail ? (
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <input
+                                                ref={emailInputRef}
+                                                value={draftEmail}
+                                                type="email"
+                                                onChange={(e) => setDraftEmail(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') saveEmail();
+                                                    if (e.key === 'Escape') {
+                                                        setEditingEmail(false);
+                                                        setDraftEmail(email);
+                                                    }
+                                                }}
+                                                disabled={savingEmail}
+                                                className="h-9 w-full max-w-[280px] rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-[13px] font-medium text-[var(--text)] outline-none transition focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)]"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={saveEmail}
+                                                disabled={savingEmail}
+                                                className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:bg-[var(--surface-2)] disabled:opacity-50"
+                                            >
+                                                Save
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setEditingEmail(false);
+                                                    setDraftEmail(email);
+                                                }}
+                                                disabled={savingEmail}
+                                                className="h-9 shrink-0 rounded-lg px-3 text-[12px] font-medium text-[var(--text-muted)] transition hover:text-[var(--text)] disabled:opacity-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 flex items-center gap-2">
+                                            <p className="truncate text-[13px] text-[var(--text-muted)]">
+                                                {isLoaded ? email || '—' : '…'}
+                                            </p>
+                                            {isLoaded && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEditingEmail(true)}
+                                                    aria-label="Edit email"
+                                                    className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                                                >
+                                                    <Pencil className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Section>
@@ -345,6 +456,17 @@ export default function SettingsPage() {
                         isDeleting={isDeleting}
                         onCancel={() => setConfirmDelete(false)}
                         onConfirm={handleDeleteAccount}
+                    />
+                )}
+
+                {showEmailConfirmModal && (
+                    <EmailUpdateConfirmModal
+                        email={draftEmail}
+                        password={passwordConfirm}
+                        setPassword={setPasswordConfirm}
+                        isSaving={savingEmail}
+                        onCancel={() => setShowEmailConfirmModal(false)}
+                        onConfirm={confirmUpdateEmail}
                     />
                 )}
             </div>
@@ -528,6 +650,105 @@ function DeleteAccountModal({
                             <Trash2 className="h-3.5 w-3.5" />
                         )}
                         {isDeleting ? 'Deleting…' : 'Delete forever'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function EmailUpdateConfirmModal({
+    email,
+    password,
+    setPassword,
+    isSaving,
+    onCancel,
+    onConfirm,
+}: {
+    email: string;
+    password: string;
+    setPassword: (s: string) => void;
+    isSaving: boolean;
+    onCancel: () => void;
+    onConfirm: () => void;
+}) {
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0, 0, 0, 0.55)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+            onClick={onCancel}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md overflow-hidden rounded-2xl border bg-[var(--surface)] p-6 shadow-2xl"
+                style={{
+                    borderColor: 'rgba(59, 130, 246, 0.30)',
+                    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(59, 130, 246, 0.18)',
+                }}
+            >
+                <div className="mb-5 flex items-start gap-3">
+                    <span
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl animate-pulse"
+                        style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}
+                    >
+                        <Key className="h-4.5 w-4.5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+                            Security verification
+                        </p>
+                        <h3 className="mt-1 text-[16px] font-semibold leading-snug text-[var(--text)]">
+                            Confirm email change
+                        </h3>
+                        <p className="mt-2 text-[13px] text-[var(--text-muted)]">
+                            Please enter your current password to update your email identifier to <span className="font-semibold text-[var(--text)]">{email}</span>.
+                        </p>
+                    </div>
+                </div>
+
+                <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+                    Password
+                </label>
+                <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your current password"
+                    disabled={isSaving}
+                    autoFocus
+                    className="mb-5 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[13px] text-[var(--text)] outline-none transition placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)] disabled:opacity-60"
+                />
+
+                <div className="flex gap-2.5">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        disabled={isSaving}
+                        className="flex h-9 flex-1 items-center justify-center rounded-lg border border-[var(--line)] bg-transparent text-[13px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)] disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        disabled={!password || isSaving}
+                        className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{
+                            background: 'linear-gradient(180deg, #1d8aff 0%, #0872F0 100%)',
+                            boxShadow: '0 1px 0 rgba(255,255,255,0.18) inset, 0 8px 18px rgba(8, 114, 240, 0.30)',
+                        }}
+                    >
+                        {isSaving ? (
+                            <span
+                                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+                                aria-hidden="true"
+                            />
+                        ) : (
+                            <Check className="h-3.5 w-3.5" />
+                        )}
+                        {isSaving ? 'Confirming…' : 'Confirm'}
                     </button>
                 </div>
             </div>

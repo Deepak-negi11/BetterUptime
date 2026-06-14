@@ -1,6 +1,7 @@
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct CreateWebsiteInput {
     pub url: String,
+    pub name: Option<String>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -31,4 +32,10 @@ pub struct ResetPasswordInput {
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct UpdateProfileInput {
     pub username: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct UpdateEmailInput {
+    pub email: String,
+    pub password_confirm: String,
 }

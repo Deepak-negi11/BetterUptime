@@ -147,6 +147,7 @@ pub fn get_website(
         graph_data,
         streak,
         created_at: website.time_added.to_string(),
+        name: website.name.clone(),
     }))
 }
 
@@ -158,7 +159,7 @@ pub fn create_website(
 ) -> poem::Result<Json<CreateWebsiteOutput>> {
     let mut locked_s = s.lock().unwrap_or_else(|e| e.into_inner());
 
-    let website = locked_s.create_website(user_id, data.url).map_err(|e| {
+    let website = locked_s.create_website(user_id, data.url, data.name).map_err(|e| {
         poem::Error::from_string(e.to_string(), poem::http::StatusCode::BAD_REQUEST)
     })?;
 
@@ -219,6 +220,7 @@ pub fn get_websites(
                 response_time: tick.as_ref().map(|t| t.response_time),
                 region_id: tick.as_ref().map(|t| t.region_id.clone()),
                 streak,
+                name: w.name.clone(),
             }
         })
         .collect();

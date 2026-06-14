@@ -1,0 +1,1 @@
+ALTER TABLE website ADD COLUMN name TEXT;

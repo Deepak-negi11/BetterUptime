@@ -11,6 +11,7 @@ pub struct Website {
     pub time_added: chrono::NaiveDateTime,
     pub user_id: String,
     pub is_paused: bool,
+    pub name: Option<String>,
 }
 
 impl Store {
@@ -18,6 +19,7 @@ impl Store {
         &mut self,
         user_id: String,
         url: String,
+        name: Option<String>,
     ) -> Result<Website, diesel::result::Error> {
         let website = Website {
             id: Uuid::new_v4().to_string(),
@@ -25,6 +27,7 @@ impl Store {
             time_added: Utc::now().naive_utc(),
             user_id,
             is_paused: false,
+            name,
         };
 
         diesel::insert_into(crate::schema::website::table)

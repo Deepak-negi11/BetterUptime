@@ -26,6 +26,7 @@ interface Website {
     last_check: string | null;
     response_time: number | null;
     region_id: string | null;
+    name: string | null;
 }
 
 function prettyHost(url: string) {
@@ -65,6 +66,7 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newUrl, setNewUrl] = useState('');
+    const [newName, setNewName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +109,7 @@ export default function DashboardPage() {
                 last_check: w.last_check || null,
                 response_time: w.response_time || null,
                 region_id: w.region_id || null,
+                name: w.name || null,
             }));
             setWebsites(mapped);
         } catch (err: any) {
@@ -126,14 +129,16 @@ export default function DashboardPage() {
         setError(null);
         const cleaned = newUrl.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
         const fullUrl = `https://${cleaned}`;
+        const nameVal = newName.trim() || null;
         try {
             const token = localStorage.getItem('token');
             await axios.post(
                 `${BACKEND_URL}/website`,
-                { url: fullUrl },
+                { url: fullUrl, name: nameVal },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setNewUrl('');
+            setNewName('');
             setShowAddModal(false);
             fetchWebsites();
             toast.success('Site added');
@@ -151,7 +156,12 @@ export default function DashboardPage() {
 
     const filtered = useMemo(() => {
         return websites.filter((w) => {
-            if (searchQuery && !w.url.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchesUrl = w.url.toLowerCase().includes(query);
+                const matchesName = w.name?.toLowerCase().includes(query) || false;
+                if (!matchesUrl && !matchesName) return false;
+            }
             return true;
         });
     }, [websites, searchQuery]);
@@ -231,13 +241,13 @@ export default function DashboardPage() {
                                                 type="button"
                                                 onClick={() => router.push(`/website/${w.id}`)}
                                                 className="absolute inset-0 z-0"
-                                                aria-label={`Open ${prettyHost(w.url)}`}
+                                                aria-label={`Open ${w.name || prettyHost(w.url)}`}
                                             />
 
                                             {/* Top row: status and endpoint left, response time right */}
                                             <div className="relative z-10 mb-5 flex items-center justify-between gap-4">
                                                 <div className="flex min-w-0 items-center gap-3">
-                                                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                                    <span className="relative flex h-2.5 w-2.5 shrink-0 mt-1">
                                                         {(w.status === 'up' || w.status === 'down') && (
                                                             <span
                                                                 className="absolute inset-0 animate-ping rounded-full opacity-60"
@@ -249,12 +259,19 @@ export default function DashboardPage() {
                                                             style={{ background: meta.dot, boxShadow: `0 0 12px ${meta.dot}` }}
                                                         />
                                                     </span>
-                                                    <p
-                                                        className="dashboard-monitor-name truncate text-[22px] font-semibold text-[var(--text)]"
-                                                        title={w.url}
-                                                    >
-                                                        {prettyHost(w.url)}
-                                                    </p>
+                                                    <div className="min-w-0">
+                                                        <p
+                                                            className="dashboard-monitor-name truncate text-[20px] font-semibold leading-tight text-[var(--text)]"
+                                                            title={w.url}
+                                                        >
+                                                            {w.name || prettyHost(w.url)}
+                                                        </p>
+                                                        {w.name && (
+                                                            <p className="truncate text-[11px] text-[var(--text-muted)] mt-0.5" title={w.url}>
+                                                                {prettyHost(w.url)}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <span className="font-mono text-[11px] tabular-nums text-[var(--text-faint)]">
@@ -287,6 +304,8 @@ export default function DashboardPage() {
                     <AddMonitorModal
                         url={newUrl}
                         setUrl={setNewUrl}
+                        name={newName}
+                        setName={setNewName}
                         error={error}
                         isAdding={isAdding}
                         onClose={() => setShowAddModal(false)}
@@ -322,6 +341,8 @@ function EmptyState({ searching }: { searching: boolean }) {
 function AddMonitorModal({
     url,
     setUrl,
+    name,
+    setName,
     error,
     isAdding,
     onClose,
@@ -329,6 +350,8 @@ function AddMonitorModal({
 }: {
     url: string;
     setUrl: (s: string) => void;
+    name: string;
+    setName: (s: string) => void;
     error: string | null;
     isAdding: boolean;
     onClose: () => void;
@@ -360,6 +383,17 @@ function AddMonitorModal({
 
                 <form onSubmit={onSubmit}>
                     <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+                        What should we call it?
+                    </label>
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Production API (optional)"
+                        className="mb-4 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)]"
+                    />
+
+                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
                         Domain
                     </label>
                     <div className="mb-3 flex items-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] focus-within:border-[var(--brand)] focus-within:ring-2 focus-within:ring-[var(--brand-ring)]">
@@ -373,7 +407,6 @@ function AddMonitorModal({
                             placeholder="example.com"
                             className="w-full border-none bg-transparent px-3 py-2.5 text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
                             required
-                            autoFocus
                         />
                     </div>
                     <div className="mb-6 flex items-center gap-2 text-[12px] text-[var(--text-muted)]">

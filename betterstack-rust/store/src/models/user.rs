@@ -93,6 +93,16 @@ impl Store {
         Ok((user_result.username, user_result.email))
     }
 
+    pub fn get_user_password_hash(&mut self, user_id: &str) -> Result<String, diesel::result::Error> {
+        use crate::schema::user::dsl::*;
+        let user_result = user
+            .find(user_id)
+            .select(User::as_select())
+            .first(&mut self.conn)?;
+
+        Ok(user_result.password)
+    }
+
     pub fn update_username(
         &mut self,
         user_id: &str,
@@ -101,6 +111,17 @@ impl Store {
         use crate::schema::user::dsl::*;
         diesel::update(user.find(user_id))
             .set(username.eq(new_username))
+            .execute(&mut self.conn)
+    }
+
+    pub fn update_email(
+        &mut self,
+        user_id: &str,
+        new_email: &str,
+    ) -> Result<usize, diesel::result::Error> {
+        use crate::schema::user::dsl::*;
+        diesel::update(user.find(user_id))
+            .set(email.eq(new_email))
             .execute(&mut self.conn)
     }
 
