@@ -31,5 +31,5 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
-      RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY in the worker .env file for alert delivery}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     command: [ "./worker" ]
