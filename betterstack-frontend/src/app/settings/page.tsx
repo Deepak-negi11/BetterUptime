@@ -229,7 +229,7 @@ export default function SettingsPage() {
                             <h1 className="text-[2rem] font-semibold tracking-[-0.035em] text-[var(--text)]">
                                 Settings
                             </h1>
-                            <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+                            <p className="mt-2 text-[15px] text-[var(--text-muted)]">
                                 Manage your account, security, and appearance.
                             </p>
                         </div>

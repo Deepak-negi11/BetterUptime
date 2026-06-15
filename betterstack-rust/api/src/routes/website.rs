@@ -14,6 +14,8 @@ use store::store::Store;
 
 use crate::alert::send_email_alert;
 
+const DEFAULT_REGION: &str = "india-mumbai";
+
 #[derive(Deserialize)]
 pub struct WebsitesQuery {
     pub region: Option<String>,
@@ -94,7 +96,9 @@ pub fn get_website(
         .filter(|b| b.bucket > cutoff_24h && b.bucket <= now.naive_utc())
         .collect();
 
-    let incidents_24h: i64 = last_24h_buckets.iter().map(|b| b.down_count).sum();
+    let incidents_24h = lock
+        .count_incidents(&id, cutoff_24h, now.naive_utc(), region)
+        .unwrap_or_default();
 
     let avg_response_time_24h = if last_24h_buckets.is_empty() {
         0
@@ -200,7 +204,11 @@ pub fn get_websites(
     let website_list: Vec<WebsiteInfo> = websites
         .into_iter()
         .map(|w| {
-            let region_filter = query.region.as_deref().filter(|&r| r != "all");
+            let region_filter = query
+                .region
+                .as_deref()
+                .filter(|&r| r != "all")
+                .or(Some(DEFAULT_REGION));
             let tick = lock
                 .get_ticks(&w.id, region_filter, 1)
                 .ok()

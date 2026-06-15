@@ -1062,6 +1062,16 @@
   color: oklch(97% 0.014 254.604);
 }
 
+.website-detail-sidebar {
+  --text: oklch(98.4% 0.003 247.858);
+  --text-muted: oklch(98.4% 0.003 247.858 / 0.85);
+  --text-faint: oklch(98.4% 0.003 247.858 / 0.65);
+  --brand: #b9ebff;
+  --brand-soft: rgba(214, 245, 255, 0.20);
+  --surface-3: rgba(73, 174, 255, 0.30);
+  --line: rgba(229, 249, 255, 0.32);
+}
+
 .website-detail-sidebar .dashboard-brand-name,
 .website-detail-sidebar .dashboard-brand-label {
   color: oklch(96.9% 0.016 293.756);
@@ -1069,19 +1079,19 @@
 
 /* Dashboard surface system: landing palette in light mode, layered charcoal in dark. */
 .dashboard-shell {
-  --surface: rgba(6, 27, 66, 0.84);
-  --surface-2: rgba(224, 247, 255, 0.1);
-  --surface-3: rgba(224, 247, 255, 0.12);
-  --surface-elev: rgba(8, 34, 79, 0.94);
-  --line: rgba(224, 248, 255, 0.28);
-  --line-strong: rgba(245, 253, 255, 0.58);
-  --line-soft: rgba(225, 247, 255, 0.14);
-  --text: #ffffff;
-  --text-muted: rgba(255, 255, 255, 0.76);
-  --text-faint: rgba(255, 255, 255, 0.5);
+  --surface: rgba(73, 174, 255, 0.22);
+  --surface-2: rgba(73, 174, 255, 0.14);
+  --surface-3: rgba(73, 174, 255, 0.30);
+  --surface-elev: rgba(73, 174, 255, 0.28);
+  --line: rgba(229, 249, 255, 0.32);
+  --line-strong: rgba(245, 253, 255, 0.55);
+  --line-soft: rgba(225, 247, 255, 0.16);
+  --text: oklch(98.4% 0.003 247.858);
+  --text-muted: oklch(98.4% 0.003 247.858 / 0.85);
+  --text-faint: oklch(98.4% 0.003 247.858 / 0.65);
   --brand: #b9ebff;
-  --brand-soft: rgba(214, 245, 255, 0.14);
-  --brand-ring: rgba(210, 245, 255, 0.38);
+  --brand-soft: rgba(214, 245, 255, 0.20);
+  --brand-ring: rgba(210, 245, 255, 0.42);
 }
 
 .dark .dashboard-shell {

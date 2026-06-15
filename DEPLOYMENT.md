@@ -116,6 +116,7 @@ Update these values:
 - `DB_PASSWORD`: Same as central server
 - `REDIS_PASSWORD`: Same as central server
 - `REGION_ID`: Unique region name (e.g., `us-east-1`, `eu-west-1`)
+- `RESEND_API_KEY`: Same Resend API key on every worker; recommended because many cloud providers block SMTP port 587
 
 ### 2.3 Start Worker
 

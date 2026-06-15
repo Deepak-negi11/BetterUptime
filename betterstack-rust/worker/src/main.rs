@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use store::models::website_status::WebsiteStatus;
-use store::redis::{create_redis_client, x_ack_bulk, x_read_group};
+use store::redis::{create_redis_client, reset_consumer_to_latest, x_ack_bulk, x_read_group};
 use store::store::Store;
 use url::Url;
 
@@ -39,10 +39,11 @@ async fn log_worker_location(http_client: &HttpClient, configured_region: &str) 
     }
 }
 
-async fn send_smtp_email(
+async fn send_alert_email(
     to: &str,
     website_url: &str,
     status: &str,
+    region_id: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Ok(resend_key) = std::env::var("RESEND_API_KEY") {
         if !resend_key.trim().is_empty() {
@@ -51,11 +52,12 @@ async fn send_smtp_email(
             let body = serde_json::json!({
                 "from": "BetterUptime Alerts <onboarding@resend.dev>",
                 "to": [to],
-                "subject": format!("Alert: {} is {}", website_url, status),
+                "subject": format!("[{}] Alert: {} is {}", region_id, website_url, status),
                 "html": format!(
-                    "Your website {} status changed to {}.<br/>Detected at: {} UTC.",
+                    "Your website {} status changed to {} in region {}.<br/>Detected at: {} UTC.",
                     website_url,
                     status,
+                    region_id,
                     chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
                 )
             });
@@ -96,11 +98,12 @@ async fn send_smtp_email(
     let email = Message::builder()
         .from(smtp_from.parse()?)
         .to(to.parse()?)
-        .subject(format!("Alert: {} is {}", website_url, status))
+        .subject(format!("[{}] Alert: {} is {}", region_id, website_url, status))
         .body(format!(
-            "Your website {} status changed to {}.\nDetected at: {} UTC.",
+            "Your website {} status changed to {} in region {}.\nDetected at: {} UTC.",
             website_url,
             status,
+            region_id,
             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
         ))?;
 
@@ -128,7 +131,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let region_id =
         std::env::var("REGION_ID").expect("REGION_ID must be set (e.g., 'india-mumbai')");
 
-    let worker_id = format!("{}_worker_1", region_id);
+    let instance_id = std::env::var("HOSTNAME").unwrap_or_else(|_| "local".to_string());
+    let worker_id = format!("{}_{}_{}", region_id, instance_id, std::process::id());
 
     let http_client = HttpClient::builder()
         .user_agent("BetterUptime-Worker/1.0")
@@ -138,6 +142,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let store = Arc::new(Mutex::new(Store::new().expect("Failed to connect to DB")));
 
     println!("🚀 Real-Region Worker Started: region={}", region_id);
+    println!("ℹ️ Endpoint policy: HTTP 2xx, 3xx, and 429 are treated as UP");
+    if std::env::var("RESEND_API_KEY")
+        .map(|key| !key.trim().is_empty())
+        .unwrap_or(false)
+    {
+        println!("📧 Alert delivery configured: Resend HTTPS API");
+    } else {
+        eprintln!(
+            "⚠️ RESEND_API_KEY is not set; alerts will fall back to SMTP, which may be blocked"
+        );
+    }
     log_worker_location(&http_client, &region_id).await;
 
     loop {
@@ -162,6 +177,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 continue;
             }
         };
+
+        if let Err(e) = reset_consumer_to_latest(&region_id, &worker_id, &mut conn).await {
+            eprintln!(
+                "🔥 Failed to reset Redis consumer in {}: {:?}",
+                region_id, e
+            );
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            continue;
+        }
 
         // Run worker cycles until connection breaks
         loop {
@@ -222,7 +246,7 @@ async fn run_worker_cycle(
         let mut store_lock = store.lock().unwrap();
         for (website_id, status, response_time) in &results {
             let last_tick = store_lock
-                .get_ticks(website_id, None, 1)
+                .get_ticks(website_id, Some(region_id), 1)
                 .ok()
                 .and_then(|ticks| ticks.into_iter().next());
 
@@ -255,9 +279,15 @@ async fn run_worker_cycle(
                             if let Ok(email) = store_lock.get_user_by_id(&website.user_id) {
                                 let url = website.url.clone();
                                 let status_str = format!("{}", new_status);
+                                let alert_region = region_id.to_string();
                                 tokio::spawn(async move {
-                                    if let Err(err) =
-                                        send_smtp_email(&email, &url, &status_str).await
+                                    if let Err(err) = send_alert_email(
+                                        &email,
+                                        &url,
+                                        &status_str,
+                                        &alert_region,
+                                    )
+                                    .await
                                     {
                                         eprintln!("🔥 Failed to send email alert: {:?}", err);
                                     }
@@ -306,7 +336,10 @@ async fn fetch_website(
             Ok(res) => {
                 let status_code = res.status();
                 let elapsed = start.elapsed().as_millis() as u64;
-                if status_code.is_success() || status_code.is_redirection() {
+                if status_code.is_success()
+                    || status_code.is_redirection()
+                    || status_code.as_u16() == 429
+                {
                     println!(
                         "  📡 {} -> Up (HTTP {}) in {}ms",
                         full_url,

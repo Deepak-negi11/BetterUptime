@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useParams, useRouter } from 'next/navigation';
@@ -68,6 +68,7 @@ interface WebsiteDetails {
 }
 
 const COMPARE_REGIONS = '__compare_regions__';
+const DEFAULT_REGION = 'india-mumbai';
 const FALLBACK_REGION_COLORS = ['#0872F0', '#22D3EE', '#F472B6', '#34D399'];
 
 const REGION_LABELS: Record<string, string> = {
@@ -82,6 +83,7 @@ const REGION_LABELS: Record<string, string> = {
     'worker-sf': 'SF',
     'worker-sfo': 'SF',
     'san-francisco': 'SF',
+    'us-san-francisco': 'SF',
     'us-west-1': 'SF',
 };
 
@@ -94,8 +96,14 @@ function regionColor(regionId: string, index: number) {
     if (normalized.includes('sfo') || normalized.includes('sf') || normalized.includes('san-francisco')) {
         return '#E8AB3A';
     }
-    if (normalized.includes('blr') || normalized.includes('bangalore') || normalized.includes('banglore')) {
-        return '#4DB2FE';
+    if (
+        normalized.includes('blr')
+        || normalized.includes('bangalore')
+        || normalized.includes('banglore')
+        || normalized.includes('india')
+        || normalized.includes('mumbai')
+    ) {
+        return '#8CC4F1';
     }
     return FALLBACK_REGION_COLORS[index % FALLBACK_REGION_COLORS.length];
 }
@@ -121,7 +129,7 @@ export default function WebsiteDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState('Day');
-    const [selectedRegion, setSelectedRegion] = useState('');
+    const [selectedRegion, setSelectedRegion] = useState(DEFAULT_REGION);
     const [startDate, setStartDate] = useState<string>('');
     const [endDate, setEndDate] = useState<string>('');
     const { theme, toggleTheme } = useTheme();
@@ -132,6 +140,8 @@ export default function WebsiteDetailPage() {
     const [mobileNav, setMobileNav] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const selectedRegionRef = useRef(selectedRegion);
+    const requestSequenceRef = useRef(0);
 
     const isDark = theme === 'dark';
     const chartGridStroke = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)';
@@ -153,14 +163,24 @@ export default function WebsiteDetailPage() {
     const rangeToDays: Record<string, number> = { 'Day': 1, 'Week': 7, 'Month': 30 };
 
     useEffect(() => {
+        selectedRegionRef.current = selectedRegion;
+
         if (id) {
-            fetchWebsiteDetails();
-            const interval = setInterval(() => fetchWebsiteDetails(), 10000);
-            return () => clearInterval(interval);
+            fetchWebsiteDetails(selectedRegion);
+            const interval = setInterval(() => fetchWebsiteDetails(selectedRegion), 10000);
+            return () => {
+                clearInterval(interval);
+                requestSequenceRef.current += 1;
+            };
         }
     }, [id, timeRange, selectedRegion, startDate, endDate]);
 
-    const fetchWebsiteDetails = async () => {
+    const fetchWebsiteDetails = async (requestedRegion = selectedRegionRef.current) => {
+        const requestSequence = ++requestSequenceRef.current;
+        const isCurrentRequest = () => (
+            requestSequence === requestSequenceRef.current
+            && requestedRegion === selectedRegionRef.current
+        );
         const token = localStorage.getItem('token');
         if (!token) {
             router.push('/user/signin');
@@ -180,7 +200,7 @@ export default function WebsiteDetailPage() {
                 return params;
             };
 
-            if (selectedRegion === COMPARE_REGIONS && website && website.regions.length > 1) {
+            if (requestedRegion === COMPARE_REGIONS && website && website.regions.length > 1) {
                 const responses = await Promise.all(
                     website.regions.map((region) =>
                         axios.get<WebsiteDetails>(`${BACKEND_URL}/website/${id}?${createParams(region).toString()}`, {
@@ -200,33 +220,41 @@ export default function WebsiteDetailPage() {
                     response.data.graph_data.forEach((bucket) => {
                         const time = new Date(bucket.bucket + 'Z').getTime();
                         const point = mergedPoints.get(time) || { time };
-                        point[lines[regionIndex].dataKey] = bucket.down_count > 0 ? 0 : bucket.avg_response_time;
+                        point[lines[regionIndex].dataKey] = bucket.avg_response_time;
                         mergedPoints.set(time, point);
                     });
                 });
 
+                if (!isCurrentRequest()) return;
                 setWebsite(responses[0].data);
+                setError(null);
                 setComparisonSummaryRegion(website.regions[0]);
                 setComparisonLines(lines);
                 setComparisonData(Array.from(mergedPoints.values()).sort((a, b) => a.time - b.time));
             } else {
-                const response = await axios.get(`${BACKEND_URL}/website/${id}?${createParams(selectedRegion || undefined).toString()}`, {
+                const response = await axios.get(`${BACKEND_URL}/website/${id}?${createParams(requestedRegion || undefined).toString()}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 const websiteDetails = response.data as WebsiteDetails;
+                if (!isCurrentRequest()) return;
                 setWebsite(websiteDetails);
+                setError(null);
                 setComparisonSummaryRegion('');
                 setComparisonLines([]);
                 setComparisonData([]);
-                if (!selectedRegion && websiteDetails.regions.length > 0) {
+                if (!websiteDetails.regions.includes(requestedRegion) && websiteDetails.regions.length > 0) {
+                    selectedRegionRef.current = websiteDetails.regions[0];
                     setSelectedRegion(websiteDetails.regions[0]);
                 }
             }
         } catch (err) {
+            if (!isCurrentRequest()) return;
             console.error('Failed to fetch website details:', err);
             setError('Failed to load website details');
         } finally {
-            setIsLoading(false);
+            if (isCurrentRequest()) {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -307,6 +335,9 @@ export default function WebsiteDetailPage() {
     const lastCheckedDate = latestTick ? new Date(latestTick.created_at + 'Z') : null;
     const lastCheckedString = formatTimeAgo(lastCheckedDate);
     const currentStatus = isPaused ? 'Paused' : !latestTick ? 'Checking' : latestTick.status === 'up' ? 'Up' : 'Down';
+    const workerIsActive = lastCheckedDate
+        ? Date.now() - lastCheckedDate.getTime() < 90_000
+        : false;
 
     const createdAtInput = toLocalInput(
         new Date(website.created_at + (website.created_at.endsWith('Z') ? '' : 'Z'))
@@ -317,7 +348,7 @@ export default function WebsiteDetailPage() {
         const date = new Date(bucket.bucket + 'Z');
         return {
             time: date.getTime(),
-            response_time: bucket.down_count > 0 ? 0 : bucket.avg_response_time,
+            response_time: bucket.avg_response_time,
             status: bucket.down_count > 0 ? 'down' : 'up',
         };
     });
@@ -456,8 +487,8 @@ export default function WebsiteDetailPage() {
 
             {/* KPI cards */}
             <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
-                <KpiCard label={`Currently ${currentStatus.toLowerCase()} for`} value={formatStreak(streakSeconds)} accent={statusDot} />
-                <KpiCard label="Last checked" value={isLoading ? '…' : lastCheckedString} />
+                <KpiCard label={`Endpoint ${currentStatus.toLowerCase()} for`} value={formatStreak(streakSeconds)} accent={statusDot} />
+                <KpiCard label={workerIsActive ? 'Worker active · last checked' : 'Worker delayed · last checked'} value={isLoading ? '…' : lastCheckedString} />
                 <KpiCard
                     label="Incidents (24h)"
                     value={String(stats.incidents_24h)}
@@ -474,7 +505,7 @@ export default function WebsiteDetailPage() {
                             {selectedRegion === COMPARE_REGIONS
                                 ? `Comparing ${comparisonLines.map((line) => labelRegion(line.region)).join(' and ')}. Cards reflect ${labelRegion(comparisonSummaryRegion)}.`
                                 : selectedRegion
-                                    ? `Real checks from ${labelRegion(selectedRegion)}`
+                                    ? `${workerIsActive ? 'Worker active' : 'Worker delayed'} · Endpoint latency from ${labelRegion(selectedRegion)}`
                                     : 'Waiting for worker data'}
                         </p>
                     </div>
@@ -483,7 +514,11 @@ export default function WebsiteDetailPage() {
                         <div className="relative">
                             <select
                                 value={selectedRegion}
-                                onChange={(e) => setSelectedRegion(e.target.value)}
+                                onChange={(e) => {
+                                    selectedRegionRef.current = e.target.value;
+                                    requestSequenceRef.current += 1;
+                                    setSelectedRegion(e.target.value);
+                                }}
                                 disabled={regions.length === 0}
                                 className="h-9 cursor-pointer appearance-none rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 pr-9 text-[13px] text-[var(--text)] outline-none transition hover:border-[var(--line-strong)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)] disabled:opacity-50"
                             >
@@ -564,7 +599,10 @@ export default function WebsiteDetailPage() {
                                             ];
                                         }
                                         if (item && item.payload && item.payload.status === 'down') {
-                                            return ['Down', 'Response time'];
+                                            return [
+                                                typeof value === 'number' ? `${Math.round(value)}ms` : '--',
+                                                'Down check latency',
+                                            ];
                                         }
                                         return [
                                             typeof value === 'number' ? `${Math.round(value)}ms` : '--',
@@ -591,11 +629,11 @@ export default function WebsiteDetailPage() {
                                     <Line
                                         type="monotone"
                                         dataKey="response_time"
-                                        stroke="#4DB2FE"
+                                        stroke="#8CC4F1"
                                         strokeWidth={2}
                                         dot={false}
                                         isAnimationActive={false}
-                                        activeDot={{ r: 4, fill: '#4DB2FE', stroke: '#fff', strokeWidth: 2 }}
+                                        activeDot={{ r: 4, fill: '#8CC4F1', stroke: '#fff', strokeWidth: 2 }}
                                     />
                                 )}
                             </LineChart>

@@ -29,6 +29,14 @@ interface Website {
     name: string | null;
 }
 
+const DEFAULT_REGION = 'india-mumbai';
+
+function labelRegion(regionId: string) {
+    if (regionId === 'india-mumbai') return 'India';
+    if (regionId === 'us-san-francisco') return 'SF';
+    return regionId;
+}
+
 function prettyHost(url: string) {
     try {
         const u = new URL(url);
@@ -98,7 +106,7 @@ export default function DashboardPage() {
             return;
         }
         try {
-            const response = await axios.get(`${BACKEND_URL}/websites`, {
+            const response = await axios.get(`${BACKEND_URL}/websites?region=${DEFAULT_REGION}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const websiteData = response.data.websites || [];
@@ -287,7 +295,7 @@ export default function DashboardPage() {
                                                     <>
                                                         <span className="text-[var(--text-faint)]">·</span>
                                                         <span className="font-mono uppercase tracking-wider text-[var(--text-faint)]">
-                                                            {w.region_id}
+                                                            {labelRegion(w.region_id)}
                                                         </span>
                                                     </>
                                                 )}
@@ -362,12 +370,12 @@ function AddMonitorModal({
             <div className="w-full max-w-md rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-2xl">
                 <div className="mb-5 flex items-start justify-between">
                     <div>
-                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">New site</p>
-                        <h3 className="mt-1 text-[18px] font-semibold text-[var(--text)]">Add a target</h3>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/70">New site</p>
+                        <h3 className="mt-1 text-[18px] font-semibold text-white">Add a site</h3>
                     </div>
                     <button
                         onClick={onClose}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+                        className="grid h-8 w-8 place-items-center rounded-lg text-white/70 transition hover:bg-white/10 hover:text-white"
                         aria-label="Close"
                     >
                         <X className="h-4 w-4" />
@@ -382,7 +390,7 @@ function AddMonitorModal({
                 )}
 
                 <form onSubmit={onSubmit}>
-                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">
+                    <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-white/75">
                         What should we call it?
                     </label>
                     <input
@@ -390,7 +398,7 @@ function AddMonitorModal({
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Production API (optional)"
-                        className="mb-4 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[14px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)]"
+                        className="mb-4 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[14px] text-white outline-none placeholder:text-white/55 focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand-ring)]"
                     />
 
                     <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-faint)]">

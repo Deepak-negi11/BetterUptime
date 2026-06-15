@@ -29,6 +29,12 @@ pub struct WebsiteBucket {
     pub total_count: i64,
 }
 
+#[derive(QueryableByName)]
+struct IncidentCount {
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    count: i64,
+}
+
 impl Store {
     pub fn create_website_tick(
         &mut self,
@@ -146,6 +152,40 @@ impl Store {
             .bind::<diesel::sql_types::Timestamp, _>(end)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(region)
             .load::<WebsiteBucket>(&mut self.conn)
+    }
+
+    pub fn count_incidents(
+        &mut self,
+        target_website_id: &str,
+        start: NaiveDateTime,
+        end: NaiveDateTime,
+        region: Option<&str>,
+    ) -> Result<i64, diesel::result::Error> {
+        let result = diesel::sql_query(
+            r#"
+            SELECT COUNT(*)::BIGINT AS count
+            FROM (
+                SELECT
+                    created_at,
+                    status,
+                    LAG(status) OVER (ORDER BY created_at ASC) AS previous_status
+                FROM website_tick
+                WHERE website_id = $1
+                  AND created_at <= $3
+                  AND ($4 IS NULL OR region_id = $4)
+            ) transitions
+            WHERE created_at >= $2
+              AND status = 'DOWN'
+              AND (previous_status IS NULL OR previous_status <> 'DOWN')
+            "#,
+        )
+        .bind::<diesel::sql_types::Text, _>(target_website_id)
+        .bind::<diesel::sql_types::Timestamp, _>(start)
+        .bind::<diesel::sql_types::Timestamp, _>(end)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(region)
+        .get_result::<IncidentCount>(&mut self.conn)?;
+
+        Ok(result.count)
     }
 
     pub fn get_current_streak(

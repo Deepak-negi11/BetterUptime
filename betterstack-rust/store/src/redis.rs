@@ -3,6 +3,7 @@ use redis::streams::{StreamReadOptions, StreamReadReply};
 use redis::{AsyncCommands, Client, RedisResult};
 
 const STREAM_NAME: &str = "betterstack";
+const STREAM_MAX_LEN: usize = 5_000;
 
 #[derive(Debug, Clone)]
 pub struct WebsiteEvent {
@@ -28,12 +29,17 @@ pub async fn x_add_bulk(
     let mut stream_ids = Vec::new();
 
     for event in events {
-        let stream_id: String = con
-            .xadd(
-                STREAM_NAME,
-                "*",
-                &[("website", event.website), ("id", event.id)],
-            )
+        let stream_id: String = redis::cmd("XADD")
+            .arg(STREAM_NAME)
+            .arg("MAXLEN")
+            .arg("~")
+            .arg(STREAM_MAX_LEN)
+            .arg("*")
+            .arg("website")
+            .arg(event.website)
+            .arg("id")
+            .arg(event.id)
+            .query_async(con)
             .await?;
         stream_ids.push(stream_id);
     }
@@ -50,7 +56,7 @@ pub async fn ensure_group_exists(
         .arg("CREATE")
         .arg(STREAM_NAME)
         .arg(group_name)
-        .arg("0") // Start from the beginning of the stream
+        .arg("$") // Monitoring tasks expire; new regions only need future checks
         .arg("MKSTREAM") // Create the stream if it doesn't exist
         .query_async(con)
         .await;
@@ -69,6 +75,40 @@ pub async fn ensure_group_exists(
             Err(e)
         }
     }
+}
+
+/// Drops stale monitoring jobs and starts this consumer at the live stream position.
+///
+/// Website checks are pushed again every 30 seconds, so replaying an old backlog
+/// delays current monitoring without adding useful data.
+pub async fn reset_consumer_to_latest(
+    consumer_group: &str,
+    worker_id: &str,
+    con: &mut MultiplexedConnection,
+) -> RedisResult<()> {
+    ensure_group_exists(con, consumer_group).await?;
+
+    let _: i64 = redis::cmd("XGROUP")
+        .arg("DELCONSUMER")
+        .arg(STREAM_NAME)
+        .arg(consumer_group)
+        .arg(worker_id)
+        .query_async(con)
+        .await?;
+
+    let _: () = redis::cmd("XGROUP")
+        .arg("SETID")
+        .arg(STREAM_NAME)
+        .arg(consumer_group)
+        .arg("$")
+        .query_async(con)
+        .await?;
+
+    println!(
+        "[{}] Redis consumer reset to the latest monitoring tasks",
+        consumer_group
+    );
+    Ok(())
 }
 
 /// Reads messages from a specific group.
